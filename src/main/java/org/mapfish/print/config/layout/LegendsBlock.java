@@ -25,11 +25,16 @@ import com.lowagie.text.DocumentException;
 import com.lowagie.text.Element;
 import com.lowagie.text.Font;
 import com.lowagie.text.FontFactory;
+import com.lowagie.text.Image;
 import com.lowagie.text.Phrase;
 import com.lowagie.text.pdf.BaseFont;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
+
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -85,6 +90,7 @@ public class LegendsBlock extends Block {
 
     private int horizontalAlignment = Element.ALIGN_CENTER;
     private float[] columnPadding = {0f,0f,0f,0f};
+    private int maxColumns = Integer.MAX_VALUE;
 
     /**
      * Render the legends block
@@ -186,7 +192,7 @@ public class LegendsBlock extends Block {
                     totalHeight += getHeight(legendItem);
                     float cellPaddingTop = leftCell.getPaddingTop();
                     float spacingBefore = legendItem.getSpaceBefore();
-                    if (totalHeight > maxHeight) {
+                    if (totalHeight > maxHeight && i > 0) {
                         column = getDefaultOuterTable(1);
                         columns.add(column);
                         totalHeight = 0f;
@@ -201,7 +207,7 @@ public class LegendsBlock extends Block {
                             }
                         }
                         int columnsSize = columns.size();
-                        maxColumnWidth = (maxWidth / columnsSize) -
+                        maxColumnWidth = (maxWidth / (columnsSize > maxColumns ? maxColumns : columnsSize)) -
                                 columnPadding[1] - columnPadding[3];
                         if (maxColumnWidth < optimumIconCellWidth +
                                 optimumTextCellWidth) {
@@ -225,11 +231,12 @@ public class LegendsBlock extends Block {
             }
 
             numColumns = columns.size();
-            PdfPTable table = getDefaultOuterTable(numColumns);
+            
+            PdfPTable table = getDefaultOuterTable(numColumns > maxColumns ? maxColumns : numColumns);
             if (maxWidth != Float.MAX_VALUE) {
                 table.setTotalWidth(maxWidth);
             }
-
+            
             for (PdfPTable col : columns) {
                 PdfPCell cell = new PdfPCell(col);
                 cell.setPaddingTop(columnPadding[0]);
@@ -239,7 +246,17 @@ public class LegendsBlock extends Block {
                 if (!borders) {
                     cell.setBorder(PdfPCell.NO_BORDER);
                 }
-                table.addCell(cell);
+                table.addCell(cell);                
+            }
+            if(numColumns > maxColumns && numColumns % maxColumns != 0) {
+            	// add filler columns
+            	for(int count = 0; count< (maxColumns - numColumns % maxColumns) ; count++) {
+            		PdfPCell cell = new PdfPCell(getDefaultOuterTable(1));            		
+                    if (!borders) {
+                        cell.setBorder(PdfPCell.NO_BORDER);
+                    }
+                    table.addCell(cell);      
+            	}
             }
             if (maxWidth < Float.MAX_VALUE) {
                 table.setTotalWidth(maxWidth);
@@ -293,7 +310,7 @@ public class LegendsBlock extends Block {
                 throw new DocumentException(e);
             }
             return iconChunk;
-        }
+        }               
 
         /**
          * creates a "real" PDF document to draw on to be able to calculate
@@ -381,6 +398,7 @@ public class LegendsBlock extends Block {
                 throws DocumentException {
             final String name = node.getString("name"); // legend text
             final String icon = node.optString("icon"); // legend image
+            final String color = node.optString("color");
             final PJsonArray iconsArray = node.optJSONArray("icons");
             final int iconsSize = iconsArray == null ? 0 : iconsArray.size();
             final String icons[] = new String[iconsSize];
@@ -402,14 +420,29 @@ public class LegendsBlock extends Block {
                     iconChunk = createImageChunk(context,
                             myIcon, iconMaxWidth, iconMaxHeight, iconScale);
                     imagePhrase.add(iconChunk);
-                    imageWidth += iconChunk.getImage().getPlainWidth();
+                    imageWidth += iconChunk.getImage().getPlainWidth() + iconPadding[1] + iconPadding[3];
                 }
             } else if (icon != null) {
                 iconChunk = createImageChunk(context, icon, iconMaxWidth,
                         iconMaxHeight, iconScale);
                 imagePhrase.add(iconChunk);
-                imageWidth = iconChunk.getImage().getPlainWidth();
-            } else {
+                imageWidth = iconChunk.getImage().getPlainWidth() + iconPadding[1] + iconPadding[3];            
+            } else if(color != null) {
+            	int width = iconMaxWidth <Float.MAX_VALUE ? (int)iconMaxWidth : 10;
+            	int height = iconMaxHeight <Float.MAX_VALUE ? (int)iconMaxHeight : 10;
+            	BufferedImage buffered = new BufferedImage(width, height, BufferedImage.TYPE_BYTE_INDEXED);  
+            	Graphics2D g2d = buffered.createGraphics();            	
+            	g2d.setColor(Color.decode(color));
+            	g2d.fillRect(0, 0, width, height);            	
+            	g2d.dispose();  
+            	try {
+					iconChunk = new Chunk(Image.getInstance(buffered, null, false), 0f, 0f, true);           	
+	                imagePhrase.add(iconChunk);
+	                imageWidth = iconChunk.getImage().getPlainWidth() + iconPadding[1] + iconPadding[3];   
+				} catch (IOException e) {
+					throw new DocumentException(e);
+				}				
+            } else {            
                 iconChunk = new Chunk("");
                 imagePhrase.add(iconChunk);
             }
@@ -418,7 +451,7 @@ public class LegendsBlock extends Block {
             namePhrase.setFont(pdfFont);
             namePhrase.add(name);
 
-            float textWidth = getTextWidth(name, pdfFont);
+            float textWidth = getTextWidth(name, pdfFont) + textPadding[1] + textPadding[3];
 
             int columnsWidthSize = columnsWidth.size();
             float maxWidthF = textWidth + imageWidth; // total with of legend item
@@ -432,7 +465,7 @@ public class LegendsBlock extends Block {
 
             absoluteWidths = null;
             LegendItemTable legendItemTable = null;
-            if (haveNoIcon) {
+            if (haveNoIcon && color == null) {
                 legendItemTable = new LegendItemTable(1);
                 absoluteWidths = new float[1];
                 absoluteWidths[0] = textMaxWidth + iconMaxWidth +
@@ -467,6 +500,9 @@ public class LegendsBlock extends Block {
                 }
 
             }
+            if(color != null) {
+            	imageCell = new PdfPCell(imagePhrase);            	            
+            }
             PdfPCell nameCell = new PdfPCell(namePhrase);
 
 
@@ -491,6 +527,10 @@ public class LegendsBlock extends Block {
             }
             if (!borders) {
                 nameCell.setBorder(PdfPCell.NO_BORDER);
+            }
+            
+            if(!borders && color != null) {
+            	imageCell.setBorder(PdfPCell.NO_BORDER);
             }
 
             if (inline) {
@@ -575,6 +615,17 @@ public class LegendsBlock extends Block {
         }
     }
 
+    /**
+     * set maximum number of columns in the legend table
+     * @param maxColumns
+     */
+    public void setMaxColumns(int maxColumns) {
+    	if(maxColumns <= 0) {
+    		throw new InvalidValueException("maxColumns", maxColumns);
+    	}
+        this.maxColumns = maxColumns;
+    }
+    
     /**
      * set maximum width of legend items i.e. the legend tables
      * @param maxWidth
