@@ -1,0 +1,18 @@
+{   
+    "baseURL":"http://www.example.com",
+    "opacity":1,
+    "singleTile":false,
+    "type":"WMS",
+    "layers":[
+       "test_layer_3"
+    ],
+    "format":"test",
+    "styles":[
+       "point"
+    ],
+    "customParams":{
+       "TRANSPARENT":true,
+       "TILED":true,
+       "CQL_FILTER":"PROP > 2"
+    }
+}

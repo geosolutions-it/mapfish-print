@@ -39,6 +39,7 @@ public abstract class TileRenderer {
         renderers.put(Format.BITMAP, new BitmapTileRenderer());
         renderers.put(Format.PDF, new PDFTileRenderer());
         renderers.put(Format.SVG, new SVGTileRenderer());
+        renderers.put(Format.TEST, new TestTileRenderer());
     }
 
     public static TileRenderer get(Format format) {
@@ -51,6 +52,7 @@ public abstract class TileRenderer {
     public enum Format {
         BITMAP,
         PDF,
-        SVG
+        SVG,
+        TEST
     }
 }

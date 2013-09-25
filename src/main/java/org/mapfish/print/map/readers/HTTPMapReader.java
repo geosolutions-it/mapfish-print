@@ -22,6 +22,7 @@ package org.mapfish.print.map.readers;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -50,6 +51,22 @@ public abstract class HTTPMapReader extends MapReader {
         super(params);
         this.context = context;
         this.params = params;
+        PJsonObject customParams = params.optJSONObject("customParams");
+        if (customParams != null) {
+        	final List<String> toBeSkipped = new ArrayList<String>();
+        	final Iterator<String> customParamsIt = customParams.keys();
+            while (customParamsIt.hasNext()) {
+                String key = customParamsIt.next();
+                if(skipCustomParam(key)) {
+                	toBeSkipped.add(key);
+                }
+            }
+            for(String key : toBeSkipped) {
+            	customParams.getInternalObj().remove(key);
+            }
+        }
+        
+        
         try {
             baseUrl = new URI(params.getString("baseURL"));
         } catch (Exception e) {
@@ -78,7 +95,7 @@ public abstract class HTTPMapReader extends MapReader {
                 final Iterator<String> customParamsIt = customParams.keys();
                 while (customParamsIt.hasNext()) {
                     String key = customParamsIt.next();
-                    URIUtils.addParam(queryParams, key, customParams.getString(key));
+                    URIUtils.addParam(queryParams, key, customParams.getString(key));                    
                 }
             }
 
@@ -93,7 +110,11 @@ public abstract class HTTPMapReader extends MapReader {
         }
     }
 
-    protected abstract void renderTiles(TileRenderer formater, Transformer transformer, URI commonUri, ParallelMapTileLoader parallelMapTileLoader) throws IOException, URISyntaxException;
+    protected boolean skipCustomParam(String key) {
+		return false;
+	}
+
+	protected abstract void renderTiles(TileRenderer formater, Transformer transformer, URI commonUri, ParallelMapTileLoader parallelMapTileLoader) throws IOException, URISyntaxException;
 
     protected abstract TileRenderer.Format getFormat();
 
@@ -109,7 +130,7 @@ public abstract class HTTPMapReader extends MapReader {
 
         if (other instanceof HTTPMapReader) {
             HTTPMapReader http = (HTTPMapReader) other;
-            PJsonObject customParams = params.optJSONObject("customParams");
+            PJsonObject customParams = params.optJSONObject("customParams");            
             PJsonObject customParamsOther = http.params.optJSONObject("customParams");
             return baseUrl.equals(http.baseUrl) &&
                     (customParams != null ? customParams.equals(customParamsOther) : customParamsOther == null);

@@ -1,0 +1,18 @@
+{   
+    "baseURL":"http://www.example.com",
+    "opacity":1,
+    "singleTile":false,
+    "type":"WMS",
+    "layers":[
+       "test_layer_2"
+    ],
+    "format":"test",
+    "styles":[
+       "point"
+    ],
+    "customParams":{
+       "TRANSPARENT":true,
+       "TILED":true,
+       "CQL_FILTER":"APER_DATA1 <= '2013-09-04' AND APER_DATA2 >= '2013-09-04'"
+    }
+}

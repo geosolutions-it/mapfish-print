@@ -49,36 +49,64 @@ public class WMSMapReader extends TileableMapReader {
 			ArrayList<MapReader> target = new ArrayList<MapReader>();
 			PJsonArray layers = params.getJSONArray("layers");
 	        PJsonArray styles = params.optJSONArray("styles");
+	        
+	        String filter = getCqlFilter(params);
+	        
 	        for (int i = 0; i < layers.size(); i++) {
 	            String layer = layers.getString(i);
 	            String style = "";
 	            if (styles != null && i < styles.size()) {
 	                style = styles.getString(i);
 	            }
-	            target.add(new WMSMapReader(layer, style, context, params));
+	            
+	            target.add(new WMSMapReader(layer, style, filter, context, params));
 	        }
 	        
 	        return target;
 		}
+
+		private String getCqlFilter(PJsonObject params) {
+			PJsonObject customParams = params.optJSONObject("customParams");
+			if(customParams != null ) {
+				String filter = customParams.optString("cql_filter");
+				if(filter == null) {
+					filter = customParams.optString("CQL_FILTER");
+				}				
+				if(filter == null) {
+					filter = "INCLUDE";
+				}
+				return filter;
+			}
+			return "INCLUDE";
+		}
     	
     }
+    
+    protected boolean skipCustomParam(String key) {
+		return key.equalsIgnoreCase("CQL_FILTER");
+	}
     
     public static final Logger LOGGER = Logger.getLogger(WMSMapReader.class);
     private final String format;
     protected final List<String> layers = new ArrayList<String>();
 
     private final List<String> styles = new ArrayList<String>();
+    
+    protected final List<String> filters = new ArrayList<String>();
 
-    private WMSMapReader(String layer, String style, RenderingContext context, PJsonObject params) {
+    private WMSMapReader(String layer, String style, String filter, RenderingContext context, PJsonObject params) {
         super(context, params);
         layers.add(layer);
         tileCacheLayerInfo = WMSServerInfo.getInfo(baseUrl, context).getTileCacheLayer(layer);
         styles.add(style);
+        filters.add(filter);
         format = params.getString("format");
     }
 
     protected TileRenderer.Format getFormat() {
-        if (format.equals("image/svg+xml")) {
+    	if(format.equals("test")) {
+    		return TileRenderer.Format.TEST;
+    	} else if (format.equals("image/svg+xml")) {
             return TileRenderer.Format.SVG;
         } else if (format.equals("application/pdf") || format.equals("application/x-pdf")) {
             return TileRenderer.Format.PDF;
@@ -133,15 +161,28 @@ public class WMSMapReader extends TileableMapReader {
             URIUtils.addParamOverride(result, "TRANSPARENT", "true");
         }
         URIUtils.addParamOverride(result, "STYLES", StringUtils.join(styles, ","));
+        if(hasFilter()) {
+        	URIUtils.addParamOverride(result, "CQL_FILTER", StringUtils.join(filters, ";"));
+        }
         URIUtils.addParamOverride(result, "format_options", "dpi:" + transformer.getDpi()); // For GeoServer
         URIUtils.addParamOverride(result, "map_resolution", String.valueOf(transformer.getDpi())); // For MapServer
     }
 
-    public boolean testMerge(MapReader other) {
+    private boolean hasFilter() {    	
+		for(String filter : filters) {
+			if(!filter.trim().isEmpty() && !filter.trim().equalsIgnoreCase("INCLUDE")) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public boolean testMerge(MapReader other) {
         if (canMerge(other)) {
             WMSMapReader wms = (WMSMapReader) other;
             layers.addAll(wms.layers);
             styles.addAll(wms.styles);
+            filters.addAll(wms.filters);
             return true;
         } else {
             return false;
