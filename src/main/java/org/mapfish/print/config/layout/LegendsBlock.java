@@ -19,19 +19,6 @@
 
 package org.mapfish.print.config.layout;
 
-import com.lowagie.text.Chunk;
-import com.lowagie.text.Document;
-import com.lowagie.text.DocumentException;
-import com.lowagie.text.Element;
-import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.Image;
-import com.lowagie.text.Phrase;
-import com.lowagie.text.pdf.BaseFont;
-import com.lowagie.text.pdf.PdfPCell;
-import com.lowagie.text.pdf.PdfPTable;
-import com.lowagie.text.pdf.PdfWriter;
-
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
@@ -42,14 +29,29 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Date;
+
 import org.apache.log4j.Logger;
-import org.json.JSONException;
 import org.mapfish.print.InvalidValueException;
 import org.mapfish.print.PDFUtils;
 import org.mapfish.print.RenderingContext;
 import org.mapfish.print.legend.LegendItemTable;
 import org.mapfish.print.utils.PJsonArray;
 import org.mapfish.print.utils.PJsonObject;
+
+import com.lowagie.text.Chunk;
+import com.lowagie.text.Document;
+import com.lowagie.text.DocumentException;
+import com.lowagie.text.Element;
+import com.lowagie.text.Font;
+import com.lowagie.text.FontFactory;
+import com.lowagie.text.Image;
+import com.lowagie.text.Phrase;
+import com.lowagie.text.pdf.BaseFont;
+import com.lowagie.text.pdf.PdfContentByte;
+import com.lowagie.text.pdf.PdfPCell;
+import com.lowagie.text.pdf.PdfPTable;
+import com.lowagie.text.pdf.PdfTemplate;
+import com.lowagie.text.pdf.PdfWriter;
 
 /**
  * Bean to configure a !legends block.
@@ -91,6 +93,10 @@ public class LegendsBlock extends Block {
     private int horizontalAlignment = Element.ALIGN_CENTER;
     private float[] columnPadding = {0f,0f,0f,0f};
     private int maxColumns = Integer.MAX_VALUE;
+    private float fitWidth = 0.0f;
+    private float fitHeight = 0.0f;
+    
+    private boolean failOnBrokenUrl = true;
 
     /**
      * Render the legends block
@@ -176,7 +182,17 @@ public class LegendsBlock extends Block {
 
             if (legends != null && legends.size() > 0) {
                 for (int i = 0; i < legends.size(); ++i) {
-                    createLegend(legends.getJSONObject(i), i == 0);
+                	try {
+                		createLegend(legends.getJSONObject(i), i == 0);
+                	} catch(org.mapfish.print.InvalidValueException e) {
+                		if(failOnBrokenUrl) {
+	                		throw e;
+                		} else {
+                			// error getting legend icon
+	                		// we don't fail, we simply skip this item
+	                		LOGGER.warn("Error getting legend item " + legends.getJSONObject(i).getString("name"), e);
+                		}
+                	}
                 }
                 setOptimumCellWidths(maxColumnWidth);
 
@@ -195,7 +211,7 @@ public class LegendsBlock extends Block {
                     if (totalHeight > maxHeight && i > 0) {
                         column = getDefaultOuterTable(1);
                         columns.add(column);
-                        totalHeight = 0f;
+                        totalHeight = getHeight(legendItem);
                         /**
                          * This fixes the case where a layer legend item
                          * gets too much padding from the top.
@@ -263,7 +279,26 @@ public class LegendsBlock extends Block {
                 table.setLockedWidth(true);
             }
             table.setHorizontalAlignment(horizontalAlignment);
-            target.add(table);
+            if(fitWidth != 0.0f || fitHeight != 0.0) {
+            	tempDocument.add(table);
+            	float aspectRatio = table.getTotalWidth() / table.getTotalHeight();
+            	if(fitWidth == 0.0f) {
+            		fitWidth = aspectRatio * fitHeight;
+            	}
+            	if(fitHeight == 0.0f) {
+            		fitHeight = fitWidth / aspectRatio;
+            	}
+            	PdfContentByte canvas = context.getDirectContent();
+        	    PdfTemplate template = canvas.createTemplate(table.getTotalWidth(), table.getTotalHeight());
+        	    table.writeSelectedRows(0, -1, 0, table.getTotalHeight(), template);
+        	    Image img = Image.getInstance(template);
+        	    img.scaleToFit(fitWidth, fitHeight);   
+        	    //img.setAbsolutePosition(0, 0);
+        	    
+        	    target.add(new Chunk(img, 0f, 0f, true));
+            } else {
+            	target.add(table);
+            }
             cleanup(); // don't forget to cleanup afterwards
         }
 
@@ -615,7 +650,18 @@ public class LegendsBlock extends Block {
         }
     }
 
+    
+    
     /**
+     * Decides if the renderer fail if broken image is received (defaults to true).
+     * 
+     * @param failOnBrokenUrl
+     */
+    public void setFailOnBrokenUrl(boolean failOnBrokenUrl) {
+		this.failOnBrokenUrl = failOnBrokenUrl;
+	}
+
+	/**
      * set maximum number of columns in the legend table
      * @param maxColumns
      */
@@ -641,8 +687,24 @@ public class LegendsBlock extends Block {
     public void setMaxHeight(double maxHeight) {
         this.maxHeight = getMaxValueIfZero((float)maxHeight, "maxHeight");
     }
+    
+    /**
+     * Sets a width to be fitted by the legend. If not 0 (the default)
+     * the legend table is resized to be contained on the given width.
+     */
+    public void setFitWidth(float fitWidth) {
+		this.fitWidth = fitWidth;
+	}
 
     /**
+     * Sets an height to be fitted by the legend. If not 0 (the default)
+     * the legend table is resized to be contained on the given height.
+     */
+	public void setFitHeight(float fitHeight) {
+		this.fitHeight = fitHeight;
+	}
+
+	/**
      * 1.0 or null for no scaling &gt;1.0 to increase size,
      * &lt; 1.0 to decrease
      * @param scale scale icon/image by this
