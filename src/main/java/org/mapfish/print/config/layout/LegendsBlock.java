@@ -29,6 +29,8 @@ import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.apache.log4j.Logger;
 import org.mapfish.print.InvalidValueException;
@@ -97,6 +99,9 @@ public class LegendsBlock extends Block {
     private float fitHeight = 0.0f;
     
     private boolean failOnBrokenUrl = true;
+    
+    private boolean reorderColumns = false;
+
 
     /**
      * Render the legends block
@@ -195,55 +200,7 @@ public class LegendsBlock extends Block {
                 	}
                 }
                 setOptimumCellWidths(maxColumnWidth);
-
-                float totalHeight = 0f;
-                for (int i = 0, len = legendItems.size(); i < len; ++i) {
-                    LegendItemTable legendItem = legendItems.get(i);
-                    /**
-                     * need the padding set before in createLegend
-                     * and add it to the optimum absolute widths
-                     */
-                    computeOptimumLegendItemWidths(legendItem);
-
-                    totalHeight += getHeight(legendItem);
-                    float cellPaddingTop = leftCell.getPaddingTop();
-                    float spacingBefore = legendItem.getSpaceBefore();
-                    if (totalHeight > maxHeight && i > 0) {
-                        column = getDefaultOuterTable(1);
-                        columns.add(column);
-                        totalHeight = getHeight(legendItem);
-                        /**
-                         * This fixes the case where a layer legend item
-                         * gets too much padding from the top.
-                         */
-                        if (spacingBefore > 0f && cellPaddingTop > 0) {
-                            leftCell.setPaddingTop(cellPaddingTop - spacingBefore);
-                            if (rightCell != null) {
-                                rightCell.setPaddingTop(rightCell.getPaddingTop() - spacingBefore);
-                            }
-                        }
-                        int columnsSize = columns.size();
-                        maxColumnWidth = (maxWidth / (columnsSize > maxColumns ? maxColumns : columnsSize)) -
-                                columnPadding[1] - columnPadding[3];
-                        if (maxColumnWidth < optimumIconCellWidth +
-                                optimumTextCellWidth) {
-                            /**
-                             * clear out the table and start new, because the
-                             * maxColumnWidth has changed!
-                             */
-                            column = getDefaultOuterTable(1);
-                            columns = new ArrayList<PdfPTable>(columnsSize);
-                            columns.add(column);
-                            i = -1;
-                            setOptimumCellWidths(maxColumnWidth);
-                        } else {
-                            column.addCell(legendItem);
-                        }
-                    } else {
-                        column.addCell(legendItem);
-                    }
-                }
-                column.setHorizontalAlignment(horizontalAlignment);
+                setOptimumColumns(maxColumnWidth, reorderColumns); 
             }
 
             numColumns = columns.size();
@@ -301,6 +258,248 @@ public class LegendsBlock extends Block {
             }
             cleanup(); // don't forget to cleanup afterwards
         }
+        
+        /**
+         * Inner class to save and restore a {@link LegendsBlock#setOptimumColumns(float, boolean)} iteration state
+         */
+        private class SetOptimumCellColumnsParameters{
+        	float totalHeight;
+        	float spacingBefore;
+        	float cellPaddingTop;
+        	float maxColumnWidth;
+        	int index;
+        	int columnsSize;
+        	public SetOptimumCellColumnsParameters(float totalHeight,float spacingBefore,float cellPaddingTop,float maxColumnWidth,int index, int columnsSize){
+        		this.totalHeight = totalHeight;
+        		this.spacingBefore = spacingBefore;
+        		this.cellPaddingTop = cellPaddingTop;
+        		this.maxColumnWidth = maxColumnWidth;
+        		this.index = index;
+        		this.columnsSize = columnsSize;
+        	}
+        	
+        }
+        
+		/**
+		 * Put each legend item inside the legendItems array to the correct
+		 * column
+		 * 
+		 * @param maxColumnWidth
+		 *            previous max column width (maybe change if we need to
+		 *            change the number of columns)
+		 * @param reorderInColumns
+		 *            when this flag it's true, it try to reorder the legends
+		 *            block in columns to obtain a uniform view (try to fill all
+		 *            columns before create a new one)
+		 * 
+		 * @throws DocumentException
+		 */
+        private void setOptimumColumns(float maxColumnWidth, boolean reorderInColumns) throws DocumentException {
+        	
+        	if(legendItems.size() == 0 || maxColumns == 1){
+        		// we can't reorder nothing
+        		reorderInColumns = false;
+        	}
+        	
+        	if(reorderInColumns){
+	        	// array to save the actual column height
+	        	float[] columnsHeight = new float[maxColumns > 0  ? maxColumns: legendItems.size()];
+	        	
+	        	// first pass. we're going to save inside targetColumns the column items by column index 
+	        	Map<Integer, ArrayList<LegendItemTable>> targetColumns = new HashMap<Integer, ArrayList<LegendItemTable>>();
+	        	
+	        	float totalHeight = 0f;
+	        	int lastColumnIndex = 0; // last column added index for columnsHeight array
+	        	int columnsSize = 1;
+	            for (int i = 0, len = legendItems.size(); i < len; ++i) {
+	                LegendItemTable legendItem = legendItems.get(i);
+	                /**
+	                 * need the padding set before in createLegend
+	                 * and add it to the optimum absolute widths
+	                 */
+	                computeOptimumLegendItemWidths(legendItem);
+	
+	                float itemHeight = getHeight(legendItem);
+	                totalHeight += itemHeight;
+	                float cellPaddingTop = leftCell.getPaddingTop();
+	                float spacingBefore = legendItem.getSpaceBefore();
+	                
+	                SetOptimumCellColumnsParameters parameters = new SetOptimumCellColumnsParameters(totalHeight, spacingBefore, cellPaddingTop, maxColumnWidth, i, columnsSize);
+	            	Integer columnIndex = getColumnToUse(itemHeight, columnsHeight);
+	            	if(columnIndex > -1 // need a new column
+	            			&& columnIndex <= lastColumnIndex){ // known column
+	            		ArrayList<LegendItemTable> column = targetColumns.get(columnIndex);
+	            		if(column == null){
+	            			column = new ArrayList<LegendItemTable>();
+	            		}
+	            		column.add(legendItem);
+	            		targetColumns.put(columnIndex, column);
+	            		columnsHeight[columnIndex] += itemHeight; // add the height to the column
+	            	}else{
+	            		parameters = computeNewParameters(legendItem, parameters);
+	            		i = parameters.index;
+	            		totalHeight = parameters.totalHeight;
+	            		columnsSize = parameters.columnsSize;
+	            		if(parameters.maxColumnWidth != maxColumnWidth){
+	                        /**
+	                         * clear out the columns height, because the
+	                         * maxColumnWidth has changed!
+	                         */
+	                		maxColumnWidth = parameters.maxColumnWidth;
+	                		// clear optimization parameters, we need to restart in for statement
+	                		columnsHeight = new float[maxColumns > 0  ? maxColumns: legendItems.size()];
+	                		lastColumnIndex = 0;
+	                		targetColumns = new HashMap<Integer, ArrayList<LegendItemTable>>();
+	                		i= -1;
+	            		}else{
+	                		columnsHeight[++lastColumnIndex] += itemHeight; // new column
+	                		ArrayList<LegendItemTable> column = new ArrayList<LegendItemTable>();
+	                		column.add(legendItem);
+	                		targetColumns.put(lastColumnIndex, column);
+	            		}
+	            	}
+	            }
+	            
+	            //now only iterate an add each legend item to the correct column
+	            for(Integer index: targetColumns.keySet()){
+	            	if(index > 0){ //fist column already generated
+	            		column = getDefaultOuterTable(1);
+	            	}
+	            	//column = columns.get(index);
+	            	for(LegendItemTable item: targetColumns.get(index)){
+	            		column.addCell(item);
+	                    column.setHorizontalAlignment(horizontalAlignment);
+	            	}
+	            	if(index > 0){ //fist column already added
+	            		columns.add(column);
+	            	}
+	            }
+        	}else{
+        		// Don't reorder in columns (old implementation)
+                float totalHeight = 0f;
+                for (int i = 0, len = legendItems.size(); i < len; ++i) {
+                    LegendItemTable legendItem = legendItems.get(i);
+                    /**
+                     * need the padding set before in createLegend
+                     * and add it to the optimum absolute widths
+                     */
+                    computeOptimumLegendItemWidths(legendItem);
+
+                    totalHeight += getHeight(legendItem);
+                    float cellPaddingTop = leftCell.getPaddingTop();
+                    float spacingBefore = legendItem.getSpaceBefore();
+                    if (totalHeight > maxHeight && i > 0) {
+                        column = getDefaultOuterTable(1);
+                        columns.add(column);
+                        totalHeight = getHeight(legendItem);
+                        /**
+                         * This fixes the case where a layer legend item
+                         * gets too much padding from the top.
+                         */
+                        if (spacingBefore > 0f && cellPaddingTop > 0) {
+                            leftCell.setPaddingTop(cellPaddingTop - spacingBefore);
+                            if (rightCell != null) {
+                                rightCell.setPaddingTop(rightCell.getPaddingTop() - spacingBefore);
+                            }
+                        }
+                        int columnsSize = columns.size();
+                        maxColumnWidth = (maxWidth / (columnsSize > maxColumns ? maxColumns : columnsSize)) -
+                                columnPadding[1] - columnPadding[3];
+                        if (maxColumnWidth < optimumIconCellWidth +
+                                optimumTextCellWidth) {
+                            /**
+                             * clear out the table and start new, because the
+                             * maxColumnWidth has changed!
+                             */
+                            column = getDefaultOuterTable(1);
+                            columns = new ArrayList<PdfPTable>(columnsSize);
+                            columns.add(column);
+                            i = -1;
+                            setOptimumCellWidths(maxColumnWidth);
+                        } else {
+                            column.addCell(legendItem);
+                        }
+                    } else {
+                        column.addCell(legendItem);
+                    }
+                }
+                column.setHorizontalAlignment(horizontalAlignment);
+        	}
+		}
+
+        /**
+         * Obtain the index of the column to add the legend item
+         * 
+         * @param itemHeight
+         * @param columnsHeight
+         * 
+         * @return -1 if you can't add in any column or column index otherwise
+         */
+		private int getColumnToUse(float itemHeight, float[] columnsHeight) {
+			int columnIndex = -1; // new one
+			// if all columns are fill, we need to select the smaller one
+			boolean allFill = false;
+			int alternativeIndex = 0; 
+			if(columnsHeight[0] == 0f){
+				columnIndex = 0;
+			}else{
+				float smallerColumn = Float.MAX_VALUE;
+				for(int i = 0; i < columnsHeight.length; i++){
+					float newHeight = columnsHeight[i] + itemHeight;
+					if(columnsHeight[i] == 0){
+						break; //the column is empty. must be already found and we need to create a new one
+					}else if(columnsHeight[i] != 0 
+							&& newHeight < maxHeight
+							&& newHeight < smallerColumn){
+						smallerColumn = newHeight;
+						columnIndex = i;
+					}else if(newHeight < smallerColumn){
+						smallerColumn = newHeight;
+						alternativeIndex = i;
+					}
+					if((i == (columnsHeight.length -1)) 
+							&& (columnIndex == -1)){
+						allFill = true;
+					}
+				}
+			}
+			return allFill ? alternativeIndex : columnIndex;
+		}
+		
+		/**
+		 * Recalculate legends block parameters when a new legend item is added
+		 * 
+		 * @param legendItem to ad
+		 * @param parameters previous parameters
+		 *  
+		 * @return SetOptimumCellColumnsParameters calculated
+		 * 
+		 * @throws DocumentException
+		 */
+		private SetOptimumCellColumnsParameters computeNewParameters(LegendItemTable legendItem, SetOptimumCellColumnsParameters parameters) throws DocumentException {
+            parameters.totalHeight = getHeight(legendItem);
+            parameters.columnsSize++;
+            /**
+             * This fixes the case where a layer legend item
+             * gets too much padding from the top.
+             */
+            if (parameters.spacingBefore > 0f && parameters.cellPaddingTop > 0) {
+                leftCell.setPaddingTop(parameters.cellPaddingTop - parameters.spacingBefore);
+                if (rightCell != null) {
+                    rightCell.setPaddingTop(rightCell.getPaddingTop() - parameters.spacingBefore);
+                }
+            }
+            int columnsSize = parameters.columnsSize;
+            parameters.maxColumnWidth = (maxWidth / (columnsSize > maxColumns ? maxColumns : columnsSize)) -
+                    columnPadding[1] - columnPadding[3];
+            if (parameters.maxColumnWidth < optimumIconCellWidth +
+                    optimumTextCellWidth) {
+                parameters.index = -1;
+                parameters.columnsSize = 1; // restart!!
+                setOptimumCellWidths(parameters.maxColumnWidth);
+            } 
+            return parameters;
+		}
 
         /**
          * get width of text on the page with font
@@ -956,4 +1155,13 @@ public class LegendsBlock extends Block {
         }
         this.layerSpaceBefore = (float) layerSpaceBefore;
     }
+
+    /**
+     * Set the flag indicates if it' need to reorder legend in the columns to optimize it
+     * 
+     * @param reorderColumns
+     */
+	public void setReorderColumns(boolean reorderColumns) {
+		this.reorderColumns = reorderColumns;
+	}
 }
