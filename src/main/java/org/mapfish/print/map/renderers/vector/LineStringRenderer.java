@@ -88,11 +88,120 @@ public class LineStringRenderer extends GeometriesRenderer<LineString> {
         Coordinate coord = (Coordinate) coords[0].clone();
         transformCoordinate(coord, affineTransform);
         dc.moveTo((float) coord.x, (float) coord.y);
-        for (int i = 1; i < coords.length; i++) {
-            coord = (Coordinate) coords[i].clone();
-            transformCoordinate(coord, affineTransform);
-            dc.lineTo((float) coord.x, (float) coord.y);
+        if (style.has("strokeLineJoinRadius")) {
+        	int len = coords.length;
+        	double radius = style.getDouble("strokeLineJoinRadius");
+	        for (int i = 1; i < coords.length; i++) {
+	        	
+	        	if(i+1 < len){
+					Coordinate ptPrev = transformCoordinate((Coordinate)coords[i - 1].clone(), affineTransform);
+					Coordinate pt = transformCoordinate((Coordinate)coords[i].clone(), affineTransform);
+					Coordinate ptNext = transformCoordinate((Coordinate)coords[i + 1].clone(), affineTransform);
+							
+					
+					double firstPointX = pt.x - radius * (pt.x - ptPrev.x);
+					double firstPointY = pt.y - radius * (pt.y - ptPrev.y);
+					
+					// ///////////////////////////////////////////////////////
+					// Calculate a percentage of tow segments as 
+					// radius before calculating new intermediate points
+					// ///////////////////////////////////////////////////////
+					double secondPointX = ptNext.x - radius * (ptNext.x - pt.x);
+					double secondPointY = ptNext.y - radius * (ptNext.y - pt.y);
+					dc.lineTo((float)firstPointX, (float)firstPointY);
+					dc.curveTo((float)pt.x, (float)pt.y, (float)secondPointX, (float)secondPointY);
+					
+				}else{
+					coord = (Coordinate) coords[i].clone();
+		            transformCoordinate(coord, affineTransform);
+		            dc.lineTo((float) coord.x, (float) coord.y);
+				}
+	        }
+        } else {
+	        for (int i = 1; i < coords.length; i++) {
+	            coord = (Coordinate) coords[i].clone();
+	            transformCoordinate(coord, affineTransform);
+	            dc.lineTo((float) coord.x, (float) coord.y);
+	        }
         }
+        if (style.optBool("orientation", false)) {
+        	drawArrows(dc, coords, style, affineTransform);
+        }
+        	
         if (style.optBool("stroke", true)) dc.stroke();
     }
+
+	private void drawArrows(PdfContentByte dc, Coordinate[] coords,
+			PJsonObject style, AffineTransform affineTransform) {
+		
+        int len = coords.length;
+        Coordinate prevArrow = null;
+        for (int i = 0; i < len - 1; ++i) {
+            Coordinate prevVertex = transformCoordinate((Coordinate) coords[i].clone(), affineTransform);
+            Coordinate nextVertex = transformCoordinate((Coordinate) coords[i + 1].clone(), affineTransform);
+            double x = (prevVertex.x + nextVertex.x) / 2;
+            double y = (prevVertex.y + nextVertex.y) / 2;
+            Coordinate arrow = new Coordinate(x, y);
+
+            /*arrow.id = geometry.id + '_arrow_' + i;
+            style = OpenLayers.Util.extend({}, style);
+            style.graphicName = "arrow";
+            style.pointRadius = 4;
+            style.rotation = this.getOrientation(prevVertex, nextVertex);*/
+            double rotation = getOrientation(prevVertex, nextVertex);
+            double distance = 0.0;
+            if (prevArrow != null) {
+                    double w = prevArrow.x - arrow.x;
+                    double h = prevArrow.y - arrow.y;
+                    distance = Math.sqrt(w*w + h*h);
+            }
+			
+			// ////////////////////////////////////////////////////////////////
+            // Don't draw every arrow, ie. ensure that there is enough space
+            // between two.
+			// ////////////////////////////////////////////////////////////////
+            if (prevArrow == null || distance > 40) {
+                this.drawArrow(dc, arrow, rotation, 4.0);
+                prevArrow = arrow;
+            }
+        }
+		
+	}
+
+	private void drawArrow(PdfContentByte dc, Coordinate arrow, double rotation, double size) {
+		double startAngle = (rotation + 135) % 360;
+		double endAngle = (rotation + 225) % 360;
+		
+		double distX = Math.cos(startAngle * Math.PI / 180.0) * size;
+		double distY = Math.sin(startAngle * Math.PI / 180.0) * size;
+
+		double factor = 1.0; // rotation > Math.PI / 2 ? 1 : -1;
+		
+		Coordinate startPoint = new Coordinate(arrow.x + distX * factor, arrow.y + distY * factor);
+		
+		distX = Math.cos(endAngle * Math.PI / 180.0) * size;
+		distY = Math.sin(endAngle * Math.PI / 180.0) * size;
+
+		Coordinate endPoint = new Coordinate(arrow.x + distX * factor, arrow.y + distY * factor);
+		
+		dc.moveTo((float)startPoint.x, (float)startPoint.y);
+		dc.lineTo((float)arrow.x, (float)arrow.y);
+		dc.lineTo((float)endPoint.x, (float)endPoint.y);
+	}
+
+	private double getOrientation(Coordinate pt1, Coordinate pt2) {
+		double x = pt2.x - pt1.x;
+	    double y = pt2.y - pt1.y;
+
+	    double rad = Math.asin(y / Math.sqrt(x * x + y * y));
+	    
+	    double angle = rad * 180.0 / Math.PI;
+	    if (x < 0) {
+	    	angle = 180 - angle;
+	    }
+	    if(angle < 0) {
+	    	angle = 360 + angle;
+	    }
+	    return angle;
+	}
 }
