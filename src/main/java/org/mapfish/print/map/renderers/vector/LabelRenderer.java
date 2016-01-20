@@ -20,6 +20,9 @@
 package org.mapfish.print.map.renderers.vector;
 
 import java.awt.geom.AffineTransform;
+import java.io.IOException;
+import java.io.StringReader;
+import java.util.List;
 
 import org.apache.log4j.Logger;
 import org.mapfish.print.PDFUtils;
@@ -27,11 +30,17 @@ import org.mapfish.print.RenderingContext;
 import org.mapfish.print.config.ColorWrapper;
 import org.mapfish.print.utils.PJsonObject;
 
+import com.lowagie.text.Element;
+import com.lowagie.text.Paragraph;
+import com.lowagie.text.html.simpleparser.HTMLWorker;
 import com.lowagie.text.pdf.BaseFont;
+import com.lowagie.text.pdf.PdfArray;
 import com.lowagie.text.pdf.PdfContentByte;
+import com.lowagie.text.pdf.PdfPCell;
+import com.lowagie.text.pdf.PdfPTable;
+import com.lowagie.text.pdf.PdfTemplate;
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Geometry;
-import com.vividsolutions.jts.geom.Point;
 
 public class LabelRenderer {
 
@@ -43,53 +52,76 @@ public class LabelRenderer {
 		 * See Feature/Vector.js for more information about labels
 		 */
 		String label = style.optString("label");
-
+		boolean asHTML = style.optBool("asHTML", false);
 		if (label != null && label.length() > 0) {
-			/*
-			 * Valid values for horizontal alignment: "l"=left, "c"=center,
-			 * "r"=right. Valid values for vertical alignment: "t"=top,
-			 * "m"=middle, "b"=bottom.
-			 */
-			String labelAlign = style.optString("labelAlign", "cm");
-			float labelXOffset = style.optFloat("labelXOffset", (float) 0.0);
-			float labelYOffset = style.optFloat("labelYOffset", (float) 0.0);
-			String fontColor = style.optString("fontColor", "#000000");
-			/* Supported itext fonts: COURIER, HELVETICA, TIMES_ROMAN */
-			String fontFamily = style.optString("fontFamily", "HELVETICA");
-			if (!"COURIER".equalsIgnoreCase(fontFamily)
-					|| !"HELVETICA".equalsIgnoreCase(fontFamily)
-					|| !"TIMES_ROMAN".equalsIgnoreCase(fontFamily)) {
-
-				LOGGER.info("Font: '"+ fontFamily +
-						"' not supported, supported fonts are 'HELVETICA', " +
-						"'COURIER', 'TIMES_ROMAN', defaults to 'HELVETICA'");
-				fontFamily = "HELVETICA";
-			}
-			String fontSize = style.optString("fontSize", "12");
-			String fontWeight = style.optString("fontWeight", "normal");
 			Coordinate center = geometry.getCentroid().getCoordinate();
-            center = GeometriesRenderer.transformCoordinate(center, affineTransform);
-			float f = context.getStyleFactor();
-			BaseFont bf = PDFUtils
-					.getBaseFont(fontFamily, fontSize, fontWeight);
-			float fontHeight = (float) Double.parseDouble(fontSize
-					.toLowerCase().replaceAll("px", "")) * f;
-			dc.setFontAndSize(bf, fontHeight);
-			dc.setColorFill(ColorWrapper.convertColor(fontColor));
-			dc.beginText();
-			dc.setTextMatrix((float) center.x + labelXOffset * f,
-                (float) center.y + labelYOffset * f);
-			dc.showTextAligned(
-					PDFUtils.getHorizontalAlignment(labelAlign),
-					label,
-					(float) center.x + labelXOffset * f,
-					(float) center.y
-							+ labelYOffset
-							* f
-							- PDFUtils
-									.getVerticalOffset(labelAlign, fontHeight),
-					0);
-			dc.endText();
+			center = GeometriesRenderer.transformCoordinate(center, affineTransform);
+			if(asHTML) {
+				int width = style.optInt("width", 300);
+				
+				try {
+					List<Element> list = HTMLWorker.parseToList(new StringReader(label), null);
+					Paragraph p = new Paragraph();
+					for(Element element : list) {
+						p.add(element);
+					}
+					PdfPCell pCell = new PdfPCell(p);
+					pCell.setBorder(0);
+					PdfPTable ptable1 = new PdfPTable(1);
+		            ptable1.addCell(pCell);
+		            ptable1.setTotalWidth(width);
+		            ptable1.writeSelectedRows(0, -1, (float)center.x, (float)center.y, dc);
+				} catch (IOException e) {
+					LOGGER.error("Error printing HTML", e);
+				}
+				
+			} else {
+				/*
+				 * Valid values for horizontal alignment: "l"=left, "c"=center,
+				 * "r"=right. Valid values for vertical alignment: "t"=top,
+				 * "m"=middle, "b"=bottom.
+				 */
+				String labelAlign = style.optString("labelAlign", "cm");
+				float labelXOffset = style.optFloat("labelXOffset", (float) 0.0);
+				float labelYOffset = style.optFloat("labelYOffset", (float) 0.0);
+				String fontColor = style.optString("fontColor", "#000000");
+				/* Supported itext fonts: COURIER, HELVETICA, TIMES_ROMAN */
+				String fontFamily = style.optString("fontFamily", "HELVETICA");
+				if (!"COURIER".equalsIgnoreCase(fontFamily)
+						|| !"HELVETICA".equalsIgnoreCase(fontFamily)
+						|| !"TIMES_ROMAN".equalsIgnoreCase(fontFamily)) {
+	
+					LOGGER.info("Font: '"+ fontFamily +
+							"' not supported, supported fonts are 'HELVETICA', " +
+							"'COURIER', 'TIMES_ROMAN', defaults to 'HELVETICA'");
+					fontFamily = "HELVETICA";
+				}
+				String fontSize = style.optString("fontSize", "12");
+				String fontWeight = style.optString("fontWeight", "normal");
+				
+	            
+				float f = context.getStyleFactor();
+				BaseFont bf = PDFUtils
+						.getBaseFont(fontFamily, fontSize, fontWeight);
+				float fontHeight = (float) Double.parseDouble(fontSize
+						.toLowerCase().replaceAll("px", "")) * f;
+				dc.setFontAndSize(bf, fontHeight);
+				dc.setColorFill(ColorWrapper.convertColor(fontColor));
+				dc.beginText();
+				dc.setTextMatrix((float) center.x + labelXOffset * f,
+	                (float) center.y + labelYOffset * f);
+				dc.showTextAligned(
+						PDFUtils.getHorizontalAlignment(labelAlign),
+						label,
+						(float) center.x + labelXOffset * f,
+						(float) center.y
+								+ labelYOffset
+								* f
+								- PDFUtils
+										.getVerticalOffset(labelAlign, fontHeight),
+						0);
+				dc.endText();
+			}
 		}
 	}
 }
