@@ -25,17 +25,22 @@ import com.lowagie.text.DocumentException;
 import com.lowagie.text.Element;
 import com.lowagie.text.Font;
 import com.lowagie.text.Image;
+import com.lowagie.text.Paragraph;
 import com.lowagie.text.Phrase;
+import com.lowagie.text.html.simpleparser.HTMLWorker;
+import com.lowagie.text.html.simpleparser.StyleSheet;
 import com.lowagie.text.pdf.BaseFont;
 import com.lowagie.text.pdf.PdfContentByte;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfTemplate;
+
 import java.awt.Graphics2D;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringReader;
 import java.net.*;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -44,6 +49,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
 import org.apache.batik.bridge.BridgeContext;
 import org.apache.batik.bridge.DocumentLoader;
 import org.apache.batik.bridge.GVTBuilder;
@@ -398,7 +404,7 @@ public class PDFUtils {
 
     private static final Pattern VAR_REGEXP = Pattern.compile("\\$\\{([^}]+)\\}");
 
-    public static Phrase renderString(RenderingContext context, PJsonObject params, String val, com.lowagie.text.Font font) throws BadElementException {
+    public static Phrase renderString(RenderingContext context, PJsonObject params, String val, com.lowagie.text.Font font, boolean asHTML) throws DocumentException {
         Phrase result = new Phrase();
         while (true) {
             Matcher matcher = VAR_REGEXP.matcher(val);
@@ -417,7 +423,26 @@ public class PDFUtils {
                 break;
             }
         }
-        result.add(val);
+        if(asHTML) {
+        	val = result.getContent();
+        	try {
+        		StyleSheet styles = new StyleSheet();
+                styles.loadTagStyle("a", "color", "blue");
+                styles.loadTagStyle("a", "text-decoration", "underline");
+				List<Element> list = HTMLWorker.parseToList(new StringReader(val), styles);
+				Paragraph p = new Paragraph();
+				for(Element element : list) {
+					p.add(element);
+				}
+				return p;
+			} catch (IOException e) {
+				throw new DocumentException(e);
+			} catch(Throwable t) {
+				result.add(val);
+			}
+        } else {
+        	result.add(val);
+        }
         return result;
     }
 

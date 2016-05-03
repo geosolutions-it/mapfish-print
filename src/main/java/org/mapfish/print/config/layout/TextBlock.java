@@ -36,6 +36,7 @@ import com.lowagie.text.Phrase;
  */
 public class TextBlock extends FontBlock {
     private String text = "";
+    private boolean asHTML = false;
 
     public void render(PJsonObject params, PdfElement target, final RenderingContext context) throws DocumentException {
         Paragraph paragraph = new Paragraph();
@@ -43,7 +44,7 @@ public class TextBlock extends FontBlock {
         final Font pdfFont = getPdfFont();
         paragraph.setFont(pdfFont);
 
-        final Phrase text = PDFUtils.renderString(context, params, this.text, pdfFont);
+        final Phrase text = PDFUtils.renderString(context, params, this.text, pdfFont, asHTML);
         paragraph.add(text);
 
         if (getAlign() != null) paragraph.setAlignment(getAlign().getCode());
@@ -58,8 +59,16 @@ public class TextBlock extends FontBlock {
     public String getText() {
         return text;
     }
+    
+    public boolean isAsHTML() {
+		return asHTML;
+	}
 
-    public void validate() {
+	public void setAsHTML(boolean asHTML) {
+		this.asHTML = asHTML;
+	}
+
+	public void validate() {
         super.validate();
         if (text == null) throw new InvalidValueException("text", "null");
     }

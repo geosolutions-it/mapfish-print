@@ -41,6 +41,7 @@ public abstract class Block {
     private String backgroundColor = null;
     private String condition = null;
     protected double spacingAfter = 0.0;    
+    private boolean renderOnExtraPage = false;
 
     public Block() {
 
@@ -153,4 +154,14 @@ public abstract class Block {
 	public boolean hasExtraRendering() {
 		return false;
 	}
+
+	public boolean isRenderOnExtraPage() {
+		return renderOnExtraPage;
+	}
+
+	public void setRenderOnExtraPage(boolean renderOnExtraPage) {
+		this.renderOnExtraPage = renderOnExtraPage;
+	}
+	
+	
 }

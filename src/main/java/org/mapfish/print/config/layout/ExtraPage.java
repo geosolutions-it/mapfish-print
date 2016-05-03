@@ -71,7 +71,13 @@ public class ExtraPage extends Page {
 				page.setRenderOn(AFTER_LAST_PAGE);
 				break;
 		}
+		
 		page.setRenderBlock(renderBlock);
+		for(Block block : basePage.items) {
+			if(block.isRenderOnExtraPage()) {
+				page.setRenderBlock(block);
+			}
+		}
 		return page;
 	} 
 
@@ -86,9 +92,21 @@ public class ExtraPage extends Page {
     		items.clear();
     		items.add(item);
     		while(item.hasExtraRendering()) {
+    			for(Block block : itemsToRender) {
+    				if(block.isRenderOnExtraPage()) {
+    					items.add(block);
+    				}
+    			}
     			super.render(params, context);
+    			
+    			items.clear();
+    			items.add(item);
     		}
     	}        
+    }
+    
+    protected void defaultRender(PJsonObject params, RenderingContext context) throws DocumentException {
+    	super.render(params, context);
     }
 
 }
