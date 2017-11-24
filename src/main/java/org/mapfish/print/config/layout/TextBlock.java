@@ -24,10 +24,10 @@ import org.mapfish.print.PDFUtils;
 import org.mapfish.print.RenderingContext;
 import org.mapfish.print.utils.PJsonObject;
 
-import com.lowagie.text.DocumentException;
-import com.lowagie.text.Font;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.Phrase;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.Font;
+import com.itextpdf.text.Paragraph;
+import com.itextpdf.text.Phrase;
 
 /**
  * Bean to configure a !text block.
@@ -44,7 +44,8 @@ public class TextBlock extends FontBlock {
         final Font pdfFont = getPdfFont();
         paragraph.setFont(pdfFont);
 
-        final Phrase text = PDFUtils.renderString(context, params, this.text, pdfFont, asHTML);
+        final Phrase text = PDFUtils.renderString(context, params, this.text, pdfFont, null,
+                asHTML);
         paragraph.add(text);
 
         if (getAlign() != null) paragraph.setAlignment(getAlign().getCode());

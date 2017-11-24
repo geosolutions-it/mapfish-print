@@ -27,16 +27,13 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.net.URL;
 import java.nio.charset.Charset;
+import java.util.Enumeration;
 import java.util.Map;
 import java.util.HashMap;
 
-import org.apache.log4j.BasicConfigurator;
-import org.apache.log4j.ConsoleAppender;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
-import org.apache.log4j.PatternLayout;
-import org.apache.log4j.PropertyConfigurator;
+import org.apache.log4j.*;
 import org.json.JSONException;
 import org.json.JSONWriter;
 import org.mapfish.print.utils.PJsonObject;
@@ -48,7 +45,7 @@ import org.springframework.context.support.AbstractXmlApplicationContext;
 import org.springframework.context.support.ClassPathXmlApplicationContext;
 import org.springframework.context.support.FileSystemXmlApplicationContext;
 
-import com.lowagie.text.DocumentException;
+import com.itextpdf.text.DocumentException;
 
 /**
  * A shell version of the MapPrinter. Can be used for testing or for calling
@@ -98,7 +95,7 @@ public class ShellMapPrinter {
         this.context = new ClassPathXmlApplicationContext(DEFAULT_SPRING_CONTEXT);
 
         if(springConfig != null) {
-            this.context = new FileSystemXmlApplicationContext(new String[]{"classpath:/"+DEFAULT_SPRING_CONTEXT, springConfig});
+            this.context = new ClassPathXmlApplicationContext(new String[]{DEFAULT_SPRING_CONTEXT, springConfig});
         }
     }
 
@@ -158,29 +155,27 @@ public class ShellMapPrinter {
         if (log4jConfig != null) {
             PropertyConfigurator.configure(log4jConfig);
         } else {
-            final ConsoleAppender appender = new ConsoleAppender(
-                    new PatternLayout("%d{HH:mm:ss.SSS} [%t] %-5p %30.30c - %m%n"),
-                    "system.err");
-            BasicConfigurator.configure(appender);
-            final Level level;
+            final ClassLoader classLoader = ShellMapPrinter.class.getClassLoader();
+            URL log4jProp;
             switch (verbose) {
                 case 0:
-                    level = Level.WARN;
+                    log4jProp = classLoader.getResource("shell-quiet-log4j.properties");
                     break;
                 case 1:
-                    level = Level.INFO;
+                    log4jProp = classLoader.getResource("shell-info-log4j.properties");
                     break;
                 case 2:
-                    level = Level.DEBUG;
-                    Logger.getLogger("httpclient").setLevel(Level.INFO);
-                    Logger.getLogger("org.apache.commons.httpclient").setLevel(Level.INFO);
-                    Logger.getLogger("org.apache.pdfbox").setLevel(Level.INFO);
+                    log4jProp = classLoader.getResource("shell-default-log4j.properties");
+                    break;
+                case 3:
+                    log4jProp = classLoader.getResource("shell-verbose-log4j.properties");
                     break;
                 default:
-                    level = Level.TRACE;
+                    log4jProp = classLoader.getResource("shell-default-log4j.properties");
                     break;
             }
-            Logger.getRootLogger().setLevel(level);
+
+            PropertyConfigurator.configure(log4jProp);
         }
     }
 

@@ -20,10 +20,9 @@
 package org.mapfish.print;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.TreeSet;
 
 import org.json.JSONException;
+import org.junit.Test;
 import org.mapfish.print.config.layout.Block;
 import org.mapfish.print.config.layout.ScalebarBlock;
 import org.mapfish.print.scalebar.Direction;
@@ -31,18 +30,16 @@ import org.mapfish.print.scalebar.Type;
 import org.mapfish.print.utils.DistanceUnit;
 import org.mapfish.print.utils.PJsonObject;
 
-import com.lowagie.text.Document;
-import com.lowagie.text.DocumentException;
-import com.lowagie.text.Element;
+import com.itextpdf.text.Document;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.Element;
 
 /**
  * This is not an automated test. You have to look at the generated PDF file.
  */
 public class ScalebarTest extends PdfTestCase {
-    public ScalebarTest(String name) {
-        super(name);
-    }
 
+    @Test
     public void testBars() throws IOException, DocumentException, JSONException {
         PJsonObject page1 = context.getGlobalParams().getJSONArray("pages").getJSONObject(0);
 
@@ -53,8 +50,8 @@ public class ScalebarTest extends PdfTestCase {
             dc.lineTo(MARGIN + 100 * i, height);
         }
         dc.stroke();*/
-        context.getLayout().getMainPage().getMap().setWidth("100");
-        context.getLayout().getMainPage().getMap().setHeight("100");
+        context.getLayout().getMainPage().getMap(null).setWidth("100");
+        context.getLayout().getMainPage().getMap(null).setHeight("100");
         ScalebarBlock block = createBaseBlock();
         draw(page1, doc, context, block);
 
@@ -167,8 +164,6 @@ public class ScalebarTest extends PdfTestCase {
         block.setType(Type.BAR_SUB);
         draw(page1, doc, context, block);
 
-        block = createCustomIntervalsBlock();
-        draw(page1, doc, context, block);
 
     }
 
@@ -187,14 +182,6 @@ public class ScalebarTest extends PdfTestCase {
         block.setMaxSize(300);
         block.setType(Type.LINE);
         block.setSpacingAfter(30);
-        return block;
-    }
-    
-    private ScalebarBlock createCustomIntervalsBlock() {
-        ScalebarBlock block;
-        block = createBaseBlock();
-        block.setPreferredIntervals(new TreeSet<Integer>(Arrays.asList(1,2,3,5,10)));
-        block.setPreferredIntervalFractions(new TreeSet<Double>(Arrays.asList(0.2, 0.5)));
         return block;
     }
 

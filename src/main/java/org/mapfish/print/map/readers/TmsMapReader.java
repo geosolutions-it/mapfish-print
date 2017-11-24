@@ -33,14 +33,14 @@ import org.mapfish.print.utils.PJsonArray;
 import org.mapfish.print.utils.PJsonObject;
 
 public class TmsMapReader extends TileableMapReader {
-	public static class Factory implements MapReaderFactory {
-		@Override
-		public List<? extends MapReader> create(String type, RenderingContext context,
-				PJsonObject params) {
-			return Collections.singletonList(new TmsMapReader("t", context, params));
-		}
+    public static class Factory implements MapReaderFactory {
+        @Override
+        public List<? extends MapReader> create(String type, RenderingContext context,
+                PJsonObject params) {
+            return Collections.singletonList(new TmsMapReader("t", context, params));
+        }
     }
-	
+
     protected final String layer;
     private final String format;
     private final String extension;
@@ -49,6 +49,7 @@ public class TmsMapReader extends TileableMapReader {
 
     protected TmsMapReader(String layer, RenderingContext context, PJsonObject params) {
         super(context, params);
+
         this.layer = layer;
         PJsonArray maxExtent = params.getJSONArray("maxExtent");
         PJsonArray tileSize = params.getJSONArray("tileSize");
@@ -67,33 +68,42 @@ public class TmsMapReader extends TileableMapReader {
         final float originY ;
 
         if(tileOrigin == null || (!tileOrigin.has("x") && !tileOrigin.has("lon"))){
-            originX = 0.0f;
+            if (maxExtent.size() != 4 || context.getConfig().getTmsDefaultOriginX() != null) {
+                originX = context.getConfig().getTmsDefaultOriginX();
+            } else {
+                originX = Math.min(maxExtent.getFloat(0), maxExtent.getFloat(2));
+            }
         }else{
             originX = tileOrigin.has("x") ? tileOrigin.getFloat("x") : tileOrigin.getFloat("lon");
         }
         if(tileOrigin == null || (!tileOrigin.has("y") && !tileOrigin.has("lat"))){
-            originY = 0.0f;
+            if (maxExtent.size() != 4 || context.getConfig().getTmsDefaultOriginY() != null) {
+                originY = context.getConfig().getTmsDefaultOriginY();
+            } else {
+                originY = Math.min(maxExtent.getFloat(1), maxExtent.getFloat(3));
+            }
         }else{
             originY = tileOrigin.has("y") ? tileOrigin.getFloat("y") : tileOrigin.getFloat("lat");
         }
 
         tileCacheLayerInfo = new TmsLayerInfo(params.getJSONArray("resolutions"), tileSize.getInt(0), tileSize.getInt(1), maxExtent.getFloat(0), maxExtent.getFloat(1), maxExtent.getFloat(2), maxExtent.getFloat(3), extension, originX, originY);
     }
-
+    @Override
     protected TileRenderer.Format getFormat() {
         return TileRenderer.Format.BITMAP;
     }
-
+    @Override
     protected void addCommonQueryParams(Map<String, List<String>> result, Transformer transformer, String srs, boolean first) {
         //not much query params for this protocol...
     }
 
-    protected URI getTileUri(URI commonUri, Transformer transformer, float minGeoX, float minGeoY, float maxGeoX, float maxGeoY, long w, long h) throws URISyntaxException, UnsupportedEncodingException {
-        float targetResolution = (maxGeoX - minGeoX) / w;
+    @Override
+    protected URI getTileUri(URI commonUri, Transformer transformer, double minGeoX, double minGeoY, double maxGeoX, double maxGeoY, long w, long h) throws URISyntaxException, UnsupportedEncodingException {
+        double targetResolution = (maxGeoX - minGeoX) / w;
         TmsLayerInfo.ResolutionInfo resolution = tileCacheLayerInfo.getNearestResolution(targetResolution);
 
-        int tileX = Math.round((minGeoX - tileCacheLayerInfo.getMinX()) / (resolution.value * w));
-        int tileY = Math.round((minGeoY - tileCacheLayerInfo.getMinY()) / (resolution.value * h));
+        int tileX = (int) Math.round((minGeoX - tileCacheLayerInfo.getMinX()) / (resolution.value * w));
+        int tileY = (int) Math.round((minGeoY - tileCacheLayerInfo.getMinY()) / (resolution.value * h));
 
 
         StringBuilder path = new StringBuilder();
@@ -108,17 +118,18 @@ public class TmsMapReader extends TileableMapReader {
         path.append('/').append(tileY);
         path.append('.').append(this.format);
 
-        return new URI(commonUri.getScheme(), commonUri.getUserInfo(), commonUri.getHost(), commonUri.getPort(), commonUri.getPath() + path, commonUri.getQuery(), commonUri.getFragment());
+        return new URI(commonUri.getScheme(), commonUri.getUserInfo(), commonUri.getHost(), commonUri.getPort(),
+                commonUri.getPath() + path, commonUri.getQuery(), commonUri.getFragment());
     }
-
+    @Override
     public boolean testMerge(MapReader other) {
         return false;
     }
-
+    @Override
     public boolean canMerge(MapReader other) {
         return false;
     }
-
+    @Override
     public String toString() {
         return layer;
     }

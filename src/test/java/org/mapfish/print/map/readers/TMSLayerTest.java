@@ -1,24 +1,24 @@
 package org.mapfish.print.map.readers;
 
-import org.json.JSONException;
-import org.json.JSONObject;
-import org.mapfish.print.*;
-import org.mapfish.print.utils.PJsonObject;
-import org.pvalsecc.misc.FileUtilities;
+import static org.junit.Assert.assertEquals;
 
 import java.io.File;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.mapfish.print.MapPrinter;
+import org.mapfish.print.MapTestBasic;
+import org.mapfish.print.utils.PJsonObject;
+import org.pvalsecc.misc.FileUtilities;
 
 public class TMSLayerTest extends MapTestBasic {
 
     PJsonObject tmsSpec;
     TmsMapReader tmsreader;
 
-    public TMSLayerTest(String name) {
-        super(name);
-    }
-
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         super.setUp();
 
         tmsSpec = MapPrinter.parseSpec(FileUtilities.readWholeTextFile(new File(TMSLayerTest.class.getClassLoader()
@@ -26,8 +26,7 @@ public class TMSLayerTest extends MapTestBasic {
 
     }
 
-    protected void tearDown() throws Exception {
-
+    public void tearDown() throws Exception {
         super.tearDown();
     }
 

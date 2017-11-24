@@ -1,28 +1,30 @@
 package org.mapfish.print.config.layout;
 
-import static org.junit.Assert.fail;
-import static org.mockito.Mockito.*;
+import com.codahale.metrics.MetricRegistry;
 
-import com.lowagie.text.DocumentException;
-import com.lowagie.text.Element;
-import com.lowagie.text.pdf.PdfContentByte;
-import com.lowagie.text.pdf.PdfTemplate;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.Element;
+import com.itextpdf.text.pdf.PdfContentByte;
+import com.itextpdf.text.pdf.PdfTemplate;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.json.JSONString;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.mapfish.print.Constants;
 import org.mapfish.print.FakeHttpd;
 import org.mapfish.print.RenderingContext;
+import org.mapfish.print.ThreadResources;
 import org.mapfish.print.config.Config;
 import org.mapfish.print.utils.PJsonObject;
-
-import java.io.IOException;
 import java.net.URL;
-import java.util.HashMap;
-import java.util.Map;
+
+import static org.junit.Assert.fail;
+import static org.mockito.Mockito.anyFloat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * Test for Legends Block class
@@ -33,21 +35,25 @@ import java.util.Map;
  */
 public class LegendsBlockTest {
     private FakeHttpd httpd;
-    private static final int PORT = 8182;
+    private ThreadResources threadResources;
 
-    protected void setUp() throws Exception {
+    @Before
+    public void setUp() throws Exception {
         Logger.getLogger("org.apache.commons.httpclient").setLevel(Level.INFO);
         Logger.getLogger("httpclient").setLevel(Level.INFO);
 
-        Map<String, FakeHttpd.HttpAnswerer> routings = new HashMap<String, FakeHttpd.HttpAnswerer>();
-        routings.put("/500", new FakeHttpd.HttpAnswerer(500, "Server error", "text/plain", "Server error"));
-        routings.put("/notImage", new FakeHttpd.HttpAnswerer(200, "OK", "text/plain", "Blahblah"));
-        httpd = new FakeHttpd(PORT, routings);
+        httpd = new FakeHttpd(
+                FakeHttpd.Route.errorResponse("/500", 500, "Server error"),
+                FakeHttpd.Route.textResponse("/notImage", "Blahblah")
+                );
         httpd.start();
+        this.threadResources = new ThreadResources();
+        this.threadResources.init();
     }
-
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         httpd.shutdown();
+        this.threadResources.destroy();
     }
 
     @Test
@@ -69,7 +75,7 @@ public class LegendsBlockTest {
                 "                  {\n" +
                 "                     \"icons\" :\n" +
                 "                        [\n" +
-                "                           \""+"http://localhost:" + PORT + "/notImage"+"\"\n" +
+                "                           \""+"http://localhost:" + httpd.getPort() + "/notImage"+"\"\n" +
                 "                        ],\n" +
                 "                     \"name\" : \"name\",\n" +
                 "                     \"iconBeforeName\" : true\n" +
@@ -87,7 +93,7 @@ public class LegendsBlockTest {
                 "                  {\n" +
                 "                     \"icons\" :\n" +
                 "                        [\n" +
-                "                           \""+"http://localhost:" + PORT + "/notImage"+"\"\n" +
+                "                           \""+"http://localhost:" + httpd.getPort() + "/notImage"+"\"\n" +
                 "                        ],\n" +
                 "                     \"name\" : \"name\",\n" +
                 "                     \"iconBeforeName\" : true\n" +
@@ -103,7 +109,9 @@ public class LegendsBlockTest {
             }
         };
         Config config = new Config();
+        config.setThreadResources(this.threadResources);
         config.setBrokenUrlPlaceholder(Constants.ImagePlaceHolderConstants.DEFAULT);
+        config.setMetricRegistry(new MetricRegistry());
 
         RenderingContext context = mock(RenderingContext.class);
 

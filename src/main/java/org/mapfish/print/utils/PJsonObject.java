@@ -158,7 +158,7 @@ public class PJsonObject extends PJsonElement {
     }
 
     @SuppressWarnings("unchecked")
-	public Iterator<String> keys() {
+    public Iterator<String> keys() {
         return obj.keys();
     }
 
@@ -194,10 +194,6 @@ public class PJsonObject extends PJsonElement {
 
     public boolean has(String key) {
         String result = obj.optString(key, null);
-        if (result == null) {
-            return false;
-        } else {
-            return true;
-        }
+        return result != null;
     }
 }

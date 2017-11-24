@@ -4,15 +4,15 @@ import org.mapfish.print.Constants;
 import org.mapfish.print.RenderingContext;
 import org.mapfish.print.config.layout.Layout;
 
-import com.lowagie.text.Document;
-import com.lowagie.text.DocumentException;
-import com.lowagie.text.pdf.PdfStream;
-import com.lowagie.text.pdf.PdfWriter;
+import com.itextpdf.text.Document;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.pdf.PdfStream;
+import com.itextpdf.text.pdf.PdfWriter;
 
 public abstract class AbstractOutputFormat implements OutputFormat {
 
     protected RenderingContext doPrint(PrintParams params) throws DocumentException {
-    	final String layoutName = params.jsonSpec.getString(Constants.JSON_LAYOUT_KEY);
+        final String layoutName = params.jsonSpec.getString(Constants.JSON_LAYOUT_KEY);
         Layout layout = params.config.getLayout(layoutName);
         if (layout == null) {
             throw new RuntimeException("Unknown layout '" + layoutName + "'");

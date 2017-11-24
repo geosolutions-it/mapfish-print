@@ -19,12 +19,11 @@
 
 package org.mapfish.print.config.layout;
 
+import com.itextpdf.awt.PdfGraphics2D;
 import java.awt.Graphics2D;
-import java.awt.geom.AffineTransform;
+import com.itextpdf.awt.geom.AffineTransform;
 import java.awt.print.PageFormat;
 import java.awt.print.Paper;
-import java.io.Reader;
-import java.io.StringReader;
 import java.net.URI;
 import java.net.URISyntaxException;
 
@@ -33,15 +32,14 @@ import org.apache.batik.transcoder.TranscoderInput;
 import org.apache.batik.transcoder.print.PrintTranscoder;
 import org.mapfish.print.ChunkDrawer;
 import org.mapfish.print.InvalidValueException;
-import org.mapfish.print.JsonMissingException;
 import org.mapfish.print.PDFCustomBlocks;
 import org.mapfish.print.PDFUtils;
 import org.mapfish.print.RenderingContext;
 import org.mapfish.print.utils.PJsonObject;
 
-import com.lowagie.text.DocumentException;
-import com.lowagie.text.Rectangle;
-import com.lowagie.text.pdf.PdfContentByte;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.Rectangle;
+import com.itextpdf.text.pdf.PdfContentByte;
 
 /**
  * Configuration and logic to add an !image block.
@@ -53,80 +51,24 @@ public class ImageBlock extends Block {
     private double maxWidth = 0.0;
     private double maxHeight = 0.0;
     private String rotation = "0";
-    private String svgContent = null;
 
-    /**
-     * Name given in the PDF layer.
-     */
-    private String name = null;
-
-	public void render(PJsonObject params, PdfElement target, RenderingContext context) throws DocumentException {
+    public void render(PJsonObject params, PdfElement target, RenderingContext context) throws DocumentException {
         final URI url;
-        try{
-        	// we're going to try obtain an svg image appended as content in images param
-        	if(name != null && params.has("images")){
-        		PJsonObject images = params.getJSONObject("images");
-                if(images != null && images.has(name)) {
-                	PJsonObject image = images.getJSONObject(name);
-            		svgContent = image.getString("content");
-                }
-        	}
-        }catch(JsonMissingException jme){
-        	// nothing. we execute the default render
-        	svgContent = null;
+        try {
+            final String urlTxt = PDFUtils.evalString(context, params, this.url, null);
+            url = new URI(urlTxt);
+        } catch (URISyntaxException e) {
+            throw new InvalidValueException("url", this.url, e);
         }
-        if(svgContent != null){
-        	// we render the image content
-            drawSVG(context, params, target, svgContent);
-        }else{
-        	// download from an url
-            try {
-                final String urlTxt = PDFUtils.evalString(context, params, this.url);
-                url = new URI(urlTxt);
-            } catch (URISyntaxException e) {
-                throw new InvalidValueException("url", this.url, e);
-            }
-        	if (url.getPath().endsWith(".svg")) {
-                drawSVG(context, params, target, url);
-            } else {
-                target.add(PDFUtils.createImageChunk(context, maxWidth, maxHeight, url, getRotationRadian(context, params)));
-            }
+        if (url.getPath().endsWith(".svg")) {
+            drawSVG(context, params, target, url);
+        } else {
+            target.add(PDFUtils.createImageChunk(context, maxWidth, maxHeight, url, getRotationRadian(context, params)));
         }
     }
 
     private float getRotationRadian(RenderingContext context, PJsonObject params) {
-        return (float) (Float.parseFloat(PDFUtils.evalString(context, params, this.rotation)) * Math.PI / 180.0F);
-    }
-
-    /**
-     * Render SVG content for an image
-     * 
-     * @param context
-     * @param params
-     * @param paragraph
-     * @param content to be rendered
-     * 
-     * @throws DocumentException
-     */
-    private void drawSVG(RenderingContext context, PJsonObject params, PdfElement paragraph, String content) throws DocumentException {
-    	Reader reader = new StringReader(content);
-        final TranscoderInput ti = new TranscoderInput(reader);
-        final PrintTranscoder pt = new PrintTranscoder();
-        pt.addTranscodingHint(PrintTranscoder.KEY_SCALE_TO_PAGE, Boolean.TRUE);
-        pt.transcode(ti, null);
-
-        final Paper paper = new Paper();
-        paper.setSize(maxWidth, maxHeight);
-        paper.setImageableArea(0, 0, maxWidth, maxHeight);
-        final float rotation = getRotationRadian(context, params);
-
-        final PageFormat pf = new PageFormat();
-        pf.setPaper(paper);
-
-        final SvgDrawer drawer = new SvgDrawer(context.getCustomBlocks(), rotation, pt, pf);
-
-        //register a drawer that will do the job once the position of the map is known
-        paragraph.add(PDFUtils.createPlaceholderTable(maxWidth, maxHeight, spacingAfter, drawer, align, context.getCustomBlocks()));
+        return (float) (Float.parseFloat(PDFUtils.evalString(context, params, this.rotation, null)) * Math.PI / 180.0F);
     }
 
     private void drawSVG(RenderingContext context, PJsonObject params, PdfElement paragraph, URI url) throws DocumentException {
@@ -188,7 +130,7 @@ public class ImageBlock extends Block {
                     t.rotate(rotation, maxWidth / 2.0, maxHeight / 2.0);
                 }
                 dc.transform(t);
-                g2 = dc.createGraphics((float) maxWidth, (float) maxHeight);
+                g2 = new PdfGraphics2D(dc, (float) maxWidth, (float) maxHeight);
 
                 //avoid a warning from Batik
                 System.setProperty("org.apache.batik.warn_destination", "false");
@@ -209,16 +151,6 @@ public class ImageBlock extends Block {
     @Override
     public void validate() {
         super.validate();
-        if (url == null && svgContent == null){
-    		throw new InvalidValueException("url && svgContent", "null");
-        }
+        if (url == null) throw new InvalidValueException("url", "null");
     }
-
-    public String getName() {
-		return name;
-	}
-
-	public void setName(String name) {
-		this.name = name;
-	}
 }

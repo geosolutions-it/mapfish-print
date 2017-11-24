@@ -22,10 +22,10 @@ import org.mapfish.print.InvalidValueException;
 
 /**
  * Encapsulates keys for a host.  For example Google requires a key.
- * 
+ *
  * @author jeichar
  */
-public class Key {
+public class Key implements Comparable<Key> {
     private HostMatcher host;
     private HostMatcher domain;
     private String key;
@@ -91,5 +91,10 @@ public class Key {
         if(key == null) {
             throw new InvalidValueException("A 'key' attribute is required for each key defined", key);
         }
+    }
+
+    @Override
+    public int compareTo(Key o) {
+        return this.equals(o) ? 0 : -1;
     }
 }

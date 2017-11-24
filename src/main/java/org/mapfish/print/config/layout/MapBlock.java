@@ -28,13 +28,20 @@ import org.mapfish.print.PDFUtils;
 import org.mapfish.print.RenderingContext;
 import org.mapfish.print.Transformer;
 import org.mapfish.print.map.MapChunkDrawer;
+import org.mapfish.print.map.readers.MapReader;
 import org.mapfish.print.utils.DistanceUnit;
+import org.mapfish.print.utils.Maps;
 import org.mapfish.print.utils.PJsonArray;
 import org.mapfish.print.utils.PJsonObject;
 
-import com.lowagie.text.DocumentException;
-import com.lowagie.text.Rectangle;
-import com.lowagie.text.pdf.PdfContentByte;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.Rectangle;
+import com.itextpdf.text.pdf.PdfContentByte;
+
+import java.io.Reader;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Bean to configure the !map blocks.
@@ -58,9 +65,11 @@ public class MapBlock extends Block {
 
         final MapChunkDrawer drawer = new MapChunkDrawer(context.getCustomBlocks(), transformer, overviewMap, params, context, getBackgroundColorVal(context, params), name);
 
+        PJsonObject mapParams = Maps.getMapRoot(params, this.name);
+        
         if (isAbsolute()) {
-            final float absX = getAbsoluteX(context, params);
-            final float absY = getAbsoluteY(context, params);
+            final float absX = getAbsoluteX(context, mapParams);
+            final float absY = getAbsoluteY(context, mapParams);
             context.getCustomBlocks().addAbsoluteDrawer(new PDFCustomBlocks.AbsoluteDrawer() {
                 public void render(PdfContentByte dc) {
                     final Rectangle rectangle = new Rectangle(absX, absY - transformer.getPaperH(),
@@ -73,10 +82,15 @@ public class MapBlock extends Block {
         }
     }
 
+    
+    
     /**
      * Creates the transformer in function of the JSON parameters and the block's config
      */
     public Transformer createTransformer(RenderingContext context, PJsonObject params) {
+        params = Maps.getMapRoot(params, this.name);
+        
+        boolean strictEpsg4326 = params.optBool("strictEpsg4326", false);
         Integer dpi = params.optInt("dpi");
         if (dpi == null) {
             dpi = context.getGlobalParams().getInt("dpi");
@@ -85,15 +99,18 @@ public class MapBlock extends Block {
             throw new InvalidJsonValueException(params, "dpi", dpi);
         }
 
-        String units = context.getGlobalParams().getString("units");
+        String units = params.optString("units"); 
+        if(units == null) {
+            units = context.getGlobalParams().getString("units");
+        }
         final DistanceUnit unitEnum = DistanceUnit.fromString(units);
         if (unitEnum == null) {
             throw new RuntimeException("Unknown unit: '" + units + "'");
         }
 
-        final int scale;
-        final float centerX;
-        final float centerY;
+        final double scale;
+        final double centerX;
+        final double centerY;
 
         final float width = getWidth(context, params);
         final float height = getHeight(context, params);
@@ -101,15 +118,15 @@ public class MapBlock extends Block {
         if (center != null) {
             //normal mode
             scale = params.getInt("scale");
-            centerX = center.getFloat(0);
-            centerY = center.getFloat(1);
+            centerX = center.getDouble(0);
+            centerY = center.getDouble(1);
         } else {
             //bbox mode
             PJsonArray bbox = params.getJSONArray("bbox");
-            float minX = bbox.getFloat(0);
-            float minY = bbox.getFloat(1);
-            float maxX = bbox.getFloat(2);
-            float maxY = bbox.getFloat(3);
+            double minX = bbox.getDouble(0);
+            double minY = bbox.getDouble(1);
+            double maxX = bbox.getDouble(2);
+            double maxY = bbox.getDouble(3);
 
             if (minX >= maxX) {
                 throw new InvalidValueException("maxX", maxX);
@@ -120,13 +137,13 @@ public class MapBlock extends Block {
 
             centerX = (minX + maxX) / 2.0F;
             centerY = (minY + maxY) / 2.0F;
-            
+
             double rotation = params.optDouble("rotation", 0.0);
             rotation *= Math.PI / 180;
-            float projWidth  = (maxX - minX) * (float)Math.abs(Math.cos(rotation)) +
-                               (maxY - minY) * (float)Math.abs(Math.sin(rotation));
-            float projHeight = (maxY - minY) * (float)Math.abs(Math.cos(rotation)) +
-                               (maxX - minX) * (float)Math.abs(Math.sin(rotation));
+            double projWidth  = (maxX - minX) * Math.abs(Math.cos(rotation)) +
+                               (maxY - minY) * Math.abs(Math.sin(rotation));
+            double projHeight = (maxY - minY) * Math.abs(Math.cos(rotation)) +
+                               (maxX - minX) * Math.abs(Math.sin(rotation));
             scale = context.getConfig().getBestScale(Math.max(
                     projWidth  / (DistanceUnit.PT.convertTo(width, unitEnum)),
                     projHeight / (DistanceUnit.PT.convertTo(height, unitEnum))));
@@ -142,7 +159,7 @@ public class MapBlock extends Block {
 
         String srs = null;
         if (params.optBool("geodetic", false)
-                || context.getGlobalParams().optBool("geodetic", false)) {
+            || context.getGlobalParams().optBool("geodetic", false)) {
             srs = params.optString("srs");
             if (srs == null) {
                 srs = context.getGlobalParams().optString("srs");
@@ -152,9 +169,9 @@ public class MapBlock extends Block {
                         "When geodetic is true the srs is value is required");
             }
         }
-        double rotation = params.optFloat("rotation", 0.0F) * Math.PI / 180.0;
+        double rotation = params.optDouble("rotation", 0.0F) * Math.PI / 180.0;
         return new Transformer(centerX, centerY, width, height, scale, dpi,
-                unitEnum, rotation, srs, context.getConfig().getIntegerSvg());
+                unitEnum, rotation, srs, context.getConfig().getIntegerSvg(), strictEpsg4326);
     }
 
     public void setHeight(String height) {
@@ -163,7 +180,7 @@ public class MapBlock extends Block {
     }
 
     public float getHeight(RenderingContext context, PJsonObject params) {
-        return Float.parseFloat(PDFUtils.evalString(context, params, height));
+        return Float.parseFloat(PDFUtils.evalString(context, params, height, name));
     }
 
     public void setWidth(String width) {
@@ -172,7 +189,7 @@ public class MapBlock extends Block {
     }
 
     public float getWidth(RenderingContext context, PJsonObject params) {
-        return Float.parseFloat(PDFUtils.evalString(context, params, width));
+        return Float.parseFloat(PDFUtils.evalString(context, params, width, name));
     }
 
     public boolean isAbsolute() {
@@ -186,7 +203,7 @@ public class MapBlock extends Block {
 
     public float getAbsoluteX(RenderingContext context, PJsonObject params) {
         //return Integer.parseInt(PDFUtils.evalString(context, params, absoluteX));
-      return Float.parseFloat(PDFUtils.evalString(context, params, absoluteX));
+      return Float.parseFloat(PDFUtils.evalString(context, params, absoluteX, name));
     }
 
     public void setAbsoluteY(String absoluteY) {
@@ -194,11 +211,11 @@ public class MapBlock extends Block {
     }
 
     public float getAbsoluteY(RenderingContext context, PJsonObject params) {
-        return Float.parseFloat(PDFUtils.evalString(context, params, absoluteY));
+        return Float.parseFloat(PDFUtils.evalString(context, params, absoluteY, name));
     }
 
-    public MapBlock getMap() {
-        return Double.isNaN(overviewMap) ? this : null;
+    public MapBlock getMap(String name) {
+        return ((name == null || name.equals(this.name)) && Double.isNaN(overviewMap)) ? this : null;
     }
 
     public void printClientConfig(JSONWriter json) throws JSONException {
@@ -208,7 +225,7 @@ public class MapBlock extends Block {
         json.object();
         double w; //int w;
         try {
-        	w = Math.round(Double.parseDouble(width)); //w = Integer.parseInt(width);
+            w = Math.round(Double.parseDouble(width)); //w = Integer.parseInt(width);
         } catch (NumberFormatException e) {
             w = 0;
         }
@@ -216,7 +233,7 @@ public class MapBlock extends Block {
 
         double h; //int h;
         try {
-        	h = Math.round(Double.parseDouble(height)); //h = Integer.parseInt(height);
+            h = Math.round(Double.parseDouble(height)); //h = Integer.parseInt(height);
         } catch (NumberFormatException e) {
             h = 0;
         }

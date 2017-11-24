@@ -20,9 +20,11 @@
 package org.mapfish.print.map.readers;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -30,13 +32,17 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.log4j.Logger;
+import org.json.JSONArray;
+import org.json.JSONException;
 import org.mapfish.print.InvalidJsonValueException;
 import org.mapfish.print.RenderingContext;
 import org.mapfish.print.Transformer;
 import org.mapfish.print.map.ParallelMapTileLoader;
 import org.mapfish.print.map.renderers.TileRenderer;
+import org.mapfish.print.utils.PJsonArray;
 import org.mapfish.print.utils.PJsonObject;
 import org.pvalsecc.misc.MatchAllSet;
+import org.pvalsecc.misc.StringUtils;
 import org.pvalsecc.misc.URIUtils;
 
 public abstract class HTTPMapReader extends MapReader {
@@ -44,6 +50,8 @@ public abstract class HTTPMapReader extends MapReader {
 
     protected final RenderingContext context;
     protected final PJsonObject params;
+    protected final Map<String, List<String>> paramsToMerge = new HashMap<String, List<String>>();
+    protected final Map<String, PJsonObject> mergeableParams;
     protected final URI baseUrl;
     public static final Set<String> OVERRIDE_ALL = new MatchAllSet<String>();
 
@@ -51,22 +59,14 @@ public abstract class HTTPMapReader extends MapReader {
         super(params);
         this.context = context;
         this.params = params;
-        PJsonObject customParams = params.optJSONObject("customParams");
-        if (customParams != null) {
-        	final List<String> toBeSkipped = new ArrayList<String>();
-        	final Iterator<String> customParamsIt = customParams.keys();
-            while (customParamsIt.hasNext()) {
-                String key = customParamsIt.next();
-                if(skipCustomParam(key)) {
-                	toBeSkipped.add(key);
-                }
-            }
-            for(String key : toBeSkipped) {
-            	customParams.getInternalObj().remove(key);
-            }
+        try {
+            // gets mergeable parameters for this server baseURL, so that requests to the same server
+            // can be merged
+            mergeableParams = context.getMergeableParams(params.getString("baseURL"));
+            buildParamsToMerge();
+        } catch (Exception e) {
+            throw new InvalidJsonValueException(params, "customParams", params.getJSONObject("customParams"), e);
         }
-        
-        
         try {
             baseUrl = new URI(params.getString("baseURL"));
         } catch (Exception e) {
@@ -76,6 +76,57 @@ public abstract class HTTPMapReader extends MapReader {
         checkSecurity(params);
     }
 
+    private void buildParamsToMerge() throws JSONException {
+        PJsonObject customParams = params.optJSONObject("customParams");
+        // move customParams that can be merged from customParams
+        // to paramsToMerge
+        if (customParams != null) {
+            final List<String> toBeSkipped = new ArrayList<String>();
+            final Iterator<String> customParamsIt = customParams.keys();
+            while (customParamsIt.hasNext()) {
+                String key = customParamsIt.next();
+                if (mergeableParams.containsKey(key.toUpperCase())) {
+
+                    String value = getMergeableValue(customParams, toBeSkipped,
+                            key);
+                    paramsToMerge.put(key.toUpperCase(), new ArrayList<String>(
+                            Arrays.asList(value)));
+                }
+            }
+            for (String key : toBeSkipped) {
+                customParams.getInternalObj().remove(key);
+            }
+        }
+        // add missing mergeable params: we always need a value to merge, 
+        // because the list needs to be ordered
+        for (String mergeable : mergeableParams.keySet()) {
+            if (!paramsToMerge.containsKey(mergeable)) {
+                paramsToMerge.put(mergeable.toUpperCase(),
+                        new ArrayList<String>(Arrays.asList("")));
+            }
+        }
+    }
+
+    protected String getMergeableValue(PJsonObject customParams,
+            final List<String> toBeSkipped, String key) throws JSONException {
+        toBeSkipped.add(key);
+        return customParams.getString(key);
+    }
+
+    @Override
+    public boolean testMerge(MapReader other) {
+        if (canMerge(other)) {
+            HTTPMapReader http = (HTTPMapReader) other;
+            // add all the mergeableParams
+            for(String mergeable : mergeableParams.keySet()) {
+                paramsToMerge.get(mergeable).addAll(http.paramsToMerge.get(mergeable));
+            }
+            return true;
+        } else {
+            return false;
+        }
+    }
+	
     private void checkSecurity(PJsonObject params) {
         try {
             if (!context.getConfig().validateUri(baseUrl)) {
@@ -87,34 +138,59 @@ public abstract class HTTPMapReader extends MapReader {
     }
 
     public void render(Transformer transformer, ParallelMapTileLoader parallelMapTileLoader, String srs, boolean first) {
-        Map<String, List<String>> queryParams = new HashMap<String, List<String>>();
 
         try {
-            PJsonObject customParams = params.optJSONObject("customParams");
-            if (customParams != null) {
-                final Iterator<String> customParamsIt = customParams.keys();
-                while (customParamsIt.hasNext()) {
-                    String key = customParamsIt.next();
-                    URIUtils.addParam(queryParams, key, customParams.getString(key));                    
-                }
-            }
+            final URI commonUri = createCommonURI(transformer, srs, first);
 
-            TileRenderer formater = TileRenderer.get(getFormat());
-
-            addCommonQueryParams(queryParams, transformer, srs, first);
-            final URI commonUri = URIUtils.addParams(baseUrl, queryParams, OVERRIDE_ALL);
-
-            renderTiles(formater, transformer, commonUri, parallelMapTileLoader);
+            TileRenderer formatter = TileRenderer.get(getFormat());
+            renderTiles(formatter, transformer, commonUri, parallelMapTileLoader);
         } catch (Exception e) {
             context.addError(e);
         }
     }
 
-    protected boolean skipCustomParam(String key) {
-		return false;
-	}
+    protected URI createCommonURI(Transformer transformer, String srs, boolean first) throws URISyntaxException, UnsupportedEncodingException {
+        Map<String, List<String>> queryParams = new HashMap<String, List<String>>();
+        PJsonObject customParams = params.optJSONObject("customParams");
+        if (customParams != null) {
+            final Iterator<String> customParamsIt = customParams.keys();
+            while (customParamsIt.hasNext()) {
+                String key = customParamsIt.next();
+                URIUtils.addParam(queryParams, key, customParams.getString(key));
+            }
+        }
+        addMergeableQueryParams(queryParams);
 
-	protected abstract void renderTiles(TileRenderer formater, Transformer transformer, URI commonUri, ParallelMapTileLoader parallelMapTileLoader) throws IOException, URISyntaxException;
+        addCommonQueryParams(queryParams, transformer, srs, first);
+        return URIUtils.addParams(baseUrl, queryParams, OVERRIDE_ALL);
+    }
+
+    private void addMergeableQueryParams(Map<String, List<String>> queryParams) {
+        for (String key : mergeableParams.keySet()) {
+            List<String> values = paramsToMerge.get(key);
+            List<String> valuesWithDefaults = new ArrayList<String>();
+
+            PJsonObject mergeableParam = mergeableParams.get(key);
+            String separator = mergeableParam.optString("separator", ",");
+            // we include the parameter if at least one
+            // of the related values is defined
+            boolean includeParam = false;
+            for (String value : values) {
+                if (value == null || value.isEmpty()) {
+                    value = mergeableParam.optString("defaultValue", "");
+                } else {
+                    includeParam = true;
+                }
+                valuesWithDefaults.add(value);
+            }
+            if (includeParam) {
+                URIUtils.addParam(queryParams, key,
+                        StringUtils.join(valuesWithDefaults, separator));
+            }
+        }
+    }
+
+    protected abstract void renderTiles(TileRenderer formater, Transformer transformer, URI commonUri, ParallelMapTileLoader parallelMapTileLoader) throws IOException, URISyntaxException;
 
     protected abstract TileRenderer.Format getFormat();
 
@@ -130,7 +206,7 @@ public abstract class HTTPMapReader extends MapReader {
 
         if (other instanceof HTTPMapReader) {
             HTTPMapReader http = (HTTPMapReader) other;
-            PJsonObject customParams = params.optJSONObject("customParams");            
+            PJsonObject customParams = params.optJSONObject("customParams");
             PJsonObject customParamsOther = http.params.optJSONObject("customParams");
             return baseUrl.equals(http.baseUrl) &&
                     (customParams != null ? customParams.equals(customParamsOther) : customParamsOther == null);

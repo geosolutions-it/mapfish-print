@@ -1,167 +1,205 @@
 package org.mapfish.print.map.readers;
 
-import java.io.File;
+import org.json.JSONException;
+import org.json.JSONObject;
+import org.junit.After;
+import org.junit.Test;
+import org.mapfish.print.FakeHttpd;
+import org.mapfish.print.MapTestBasic;
+import org.mapfish.print.Transformer;
+import org.mapfish.print.map.ParallelMapTileLoader;
+import org.mapfish.print.map.renderers.TileRenderer;
+import org.mapfish.print.map.renderers.TileRenderer.Format;
+import org.mapfish.print.utils.DistanceUnit;
+import org.mapfish.print.utils.PJsonArray;
+import org.mapfish.print.utils.PJsonObject;
+import org.pvalsecc.misc.FileUtilities;
+import org.pvalsecc.misc.URIUtils;
+
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URLDecoder;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
 
-import org.json.JSONException;
-import org.mapfish.print.MapPrinter;
-import org.mapfish.print.MapTestBasic;
-import org.mapfish.print.ShellMapPrinter;
-import org.mapfish.print.Transformer;
-import org.mapfish.print.map.renderers.TestTileRenderer;
-import org.mapfish.print.utils.DistanceUnit;
-import org.mapfish.print.utils.PJsonObject;
-import org.pvalsecc.misc.FileUtilities;
-import org.springframework.context.support.ClassPathXmlApplicationContext;
+import static org.junit.Assert.assertEquals;
 
+/**
+ * Test WMSMapReader
+ * Created by Jesse on 1/10/14.
+ */
 public class WMSMapReaderTest extends MapTestBasic {
+    private static final String CONTEXT_NAME = "/testServer";
+    FakeHttpd server = new FakeHttpd();
 
-	PJsonObject wmsSpec1;
-		
-	PJsonObject wmsSpec2;
-		
-	PJsonObject wmsSpec3;
-	
-	PJsonObject wmsSpec4;
-		
-	MapReaderFactoryFinder ff = new ClassPathXmlApplicationContext(ShellMapPrinter.DEFAULT_SPRING_CONTEXT).getBean(MapReaderFactoryFinder.class);
-	MapReaderFactory factory= ff.getFactory("WMS");
-	
-	Transformer transformer = new Transformer(0.0f,0.0f , 100.0f,
-            100.0f, 1000, 96, DistanceUnit.M,
-            0.0, "EPSG:4326", false);
-	
-	public WMSMapReaderTest(String name) {
-		super(name);		
-	}
-
-	protected void setUp() throws Exception {
-        super.setUp();
-        
-        TestTileRenderer.lastURIs = null;
-        
-        wmsSpec1 = MapPrinter.parseSpec(FileUtilities.readWholeTextFile(new File(WMSMapReaderTest.class.getClassLoader()
-                .getResource("layers/layer_with_filter1_spec.json").getFile())));
-        
-        wmsSpec2 = MapPrinter.parseSpec(FileUtilities.readWholeTextFile(new File(WMSMapReaderTest.class.getClassLoader()
-                .getResource("layers/layer_with_filter2_spec.json").getFile())));
-        
-        wmsSpec3 = MapPrinter.parseSpec(FileUtilities.readWholeTextFile(new File(WMSMapReaderTest.class.getClassLoader()
-                .getResource("layers/layer_with_filter3_spec.json").getFile())));
-        
-        wmsSpec4 = MapPrinter.parseSpec(FileUtilities.readWholeTextFile(new File(WMSMapReaderTest.class.getClassLoader()
-                .getResource("layers/layer_with_no_filter_spec.json").getFile())));
-
+    @After
+    public void tearDown() throws IOException, InterruptedException {
+        if (server != null) {
+            server.shutdown();
+        }
     }
 
-    protected void tearDown() throws Exception {
-
-        super.tearDown();
+    @Override
+    protected PJsonObject createGlobalParams() throws IOException {
+        return loadJson("mergeable/global.json");
     }
     
-    public void testNoFilter() throws JSONException, UnsupportedEncodingException, URISyntaxException{
+    @Test
+    public void testGetTileUri_Version1_1_1() throws Exception {
+        final URI tileUri = createTileUri(loadSpec("1.1.1", "EPSG:4326"),
+                FakeHttpd.Route.xmlResponse(CONTEXT_NAME, loadFileFromClasspath("/capabilities/wms1.1.1.xml")));
 
-    	PJsonObject wms_full = new PJsonObject(wmsSpec4.getInternalObj(), "");
-    	
-        WMSMapReader wmsreader1 = getMapReader(wms_full);                
-        assertTrue(wmsreader1.filters.size()>0);
-        Map<String, List<String>> result = new HashMap<String, List<String>>();
-        wmsreader1.addCommonQueryParams(result, transformer, "EPSG:4326", false);        
-        assertFalse(result.containsKey("CQL_FILTER"));
+        final Map<String, List<String>> parameters = URIUtils.getParameters(tileUri.getRawQuery().toUpperCase());
+        assertCommonParams(tileUri, parameters);
+        assertEquals(""+tileUri, "1.1.1", parameters.get("VERSION").get(0));
+        assertEquals(""+tileUri, "EPSG:4326", parameters.get("SRS").get(0));
+        assertEquals(""+tileUri, "0.0,10.0,90.0,45.0", parameters.get("BBOX").get(0));
+    }
+
+    @Test
+    public void testGetTileUri_VersionDefault() throws Exception {
+        final URI tileUri = createTileUri(loadSpec(null, "EPSG:4326"),
+                FakeHttpd.Route.xmlResponse(CONTEXT_NAME, loadFileFromClasspath("/capabilities/wms1.1.1.xml")));
+
+        final Map<String, List<String>> parameters = URIUtils.getParameters(tileUri.getRawQuery().toUpperCase());
+        assertCommonParams(tileUri, parameters);
+        assertEquals(""+tileUri, "1.1.1", parameters.get("VERSION").get(0));
+        assertEquals(""+tileUri, "EPSG:4326", parameters.get("SRS").get(0));
+        assertEquals(""+tileUri, "0.0,10.0,90.0,45.0", parameters.get("BBOX").get(0));
+    }
+
+    @Test
+    public void testGetTileUri_Version1_3_0() throws Exception {
+        Map<String, FakeHttpd.HttpAnswerer> routes = new HashMap<String, FakeHttpd.HttpAnswerer>();
+        routes.put(CONTEXT_NAME, new FakeHttpd.HttpAnswerer(200, "OK",
+                "application/xml", loadFileFromClasspath("/capabilities/wms1.3.0.xml")));
+        final URI tileUri = createTileUri(loadSpec("1.3.0", "EPSG:4326"),
+                FakeHttpd.Route.xmlResponse(CONTEXT_NAME, loadFileFromClasspath("/capabilities/wms1.3.0.xml")));
+
+        final Map<String, List<String>> parameters = URIUtils.getParameters(tileUri.getRawQuery().toUpperCase());
+        assertCommonParams(tileUri, parameters);
+        assertEquals("" + tileUri, "1.3.0", parameters.get("VERSION").get(0));
+        assertEquals(""+tileUri, "EPSG:4326", parameters.get("CRS").get(0));
+        assertEquals(""+tileUri, "10.0,0.0,45.0,90.0", parameters.get("BBOX").get(0));
+    }
+
+    @Test
+    public void testGetTileUri_Version1_3_0_NonEPSG4326() throws Exception {
+        Map<String, FakeHttpd.HttpAnswerer> routes = new HashMap<String, FakeHttpd.HttpAnswerer>();
+        final URI tileUri = createTileUri(loadSpec("1.3.0", "CRS:4326"),
+                FakeHttpd.Route.xmlResponse(CONTEXT_NAME, loadFileFromClasspath("/capabilities/wms1.3.0.xml")));
+
+        final Map<String, List<String>> parameters = URIUtils.getParameters(tileUri.getRawQuery().toUpperCase());
+        assertCommonParams(tileUri, parameters);
+        assertEquals("" + tileUri, "1.3.0", parameters.get("VERSION").get(0));
+        assertEquals(""+tileUri, "CRS:4326", parameters.get("CRS").get(0));
+        assertEquals(""+tileUri, "0.0,10.0,90.0,45.0", parameters.get("BBOX").get(0));
+    }
+
+    @Test
+    public void testGetTileUri_VersionCustomParams_1_3_0() throws Exception {
+        Map<String, FakeHttpd.HttpAnswerer> routes = new HashMap<String, FakeHttpd.HttpAnswerer>();
+        final PJsonObject jsonParams = loadSpec(null, "EPSG:4326");
+        JSONObject customParams = jsonParams.getJSONArray("layers").getJSONObject(0).getJSONObject("customParams").getInternalObj();
+        customParams.accumulate("version", "1.3.0");
+        final URI tileUri = createTileUri(jsonParams,
+                FakeHttpd.Route.xmlResponse(CONTEXT_NAME, loadFileFromClasspath("/capabilities/wms1.3.0.xml")));
+
+        final Map<String, List<String>> parameters = URIUtils.getParameters(tileUri.getRawQuery().toUpperCase());
+        assertCommonParams(tileUri, parameters);
+        assertEquals(""+tileUri, "1.3.0", parameters.get("VERSION").get(0));
+        assertEquals(""+tileUri, "EPSG:4326", parameters.get("CRS").get(0));
+        assertEquals(""+tileUri, "10.0,0.0,45.0,90.0", parameters.get("BBOX").get(0));
+    }
+
+    private PJsonObject loadSpec(String version, String srs) throws JSONException, IOException {
+        String baseURL = "http://localhost:" + server.getPort() + CONTEXT_NAME;
+
+        PJsonObject jsonParams = loadJson("layers/wms_layer_spec.json",
+                new Replacement("@@baseURL@@", baseURL), new Replacement("@@srs@@", srs));
+        if (version != null) {
+            jsonParams.getJSONArray("layers").getJSONObject(0).getInternalObj().accumulate("version", version);
+        }
+
+        return jsonParams;
+    }
+
+    protected void assertCommonParams(URI tileUri, Map<String, List<String>> parameters) {
+        assertEquals(""+tileUri, "WMS", parameters.get("SERVICE").get(0));
+        assertEquals("" + tileUri, "GETMAP", parameters.get("REQUEST").get(0));
+        assertEquals("" + tileUri, "LAYERNAME", parameters.get("LAYERS").get(0));
+        assertEquals("" + tileUri, "WMSSTYLE", parameters.get("STYLES").get(0));
+        assertEquals(""+tileUri, "DPI:300", parameters.get("FORMAT_OPTIONS").get(0));
+        assertEquals(""+tileUri, "IMAGE/GIF", parameters.get("FORMAT").get(0));
     }
     
-    public void testMergeDifferentFilters() throws JSONException, UnsupportedEncodingException, URISyntaxException{
-
-    	PJsonObject wms_full_1 = new PJsonObject(wmsSpec1.getInternalObj(), "");    	
-    	WMSMapReader wmsreader1 = getMapReader(wms_full_1);                
+    @Test
+    public void testMergeableParamsWithArrayCustomParams() throws Exception {
+        URI commonURI = createMergedUri(loadJson("mergeable/test5.json"));
         
-        PJsonObject wms_full_2 = new PJsonObject(wmsSpec3.getInternalObj(), "");    	
-        WMSMapReader wmsreader2 = getMapReader(wms_full_2);
-        
-        assertTrue(wmsreader1.canMerge(wmsreader2));
-        wmsreader1.testMerge(wmsreader2);
-        assertEquals(2, wmsreader1.layers.size());        
-        wmsreader1.render(transformer, null, "EPSG:4326", false);
-        List<URI> tiles = TestTileRenderer.lastURIs;
-        assertTrue(tiles.size() > 0);
-        String queryString = tiles.get(0).getRawQuery();
-        String cqlFilter = getQueryParam(queryString, "CQL_FILTER");
-        assertEquals(2, cqlFilter.split(";").length);          
+        Map<String, List<String>> parameters = URIUtils.getParameters(commonURI.getRawQuery().toUpperCase());
+        assertEquals(""+commonURI, "ATTRIBUTE1=1;ATTRIBUTE2=2", parameters.get("CQL_FILTER").get(0));        
     }
     
-    public void testMergeDifferentFiltersWithEmptyOne() throws JSONException, UnsupportedEncodingException, URISyntaxException{
+    private URI createMergedUri(PJsonObject jsonParams)
+            throws IOException, JSONException, URISyntaxException {
 
-    	PJsonObject wms_full_1 = new PJsonObject(wmsSpec1.getInternalObj(), "");    	
-    	WMSMapReader wmsreader1 = getMapReader(wms_full_1);                
+        PJsonArray layers = jsonParams.getJSONArray("layers");
+        WMSMapReader mapReader = createMapReader(layers.getJSONObject(0));
         
-        PJsonObject wms_full_2 = new PJsonObject(wmsSpec4.getInternalObj(), "");    	
-        WMSMapReader wmsreader2 = getMapReader(wms_full_2);
-        
-        assertTrue(wmsreader1.canMerge(wmsreader2));
-        wmsreader1.testMerge(wmsreader2);
-        assertEquals(2, wmsreader1.layers.size());        
-        wmsreader1.render(transformer, null, "EPSG:4326", false);
-        List<URI> tiles = TestTileRenderer.lastURIs;
-        assertTrue(tiles.size() > 0);
-        String queryString = tiles.get(0).getRawQuery();
-        String cqlFilter = getQueryParam(queryString, "CQL_FILTER");
-        assertEquals(2, cqlFilter.split(";").length); 
-        assertTrue(cqlFilter.indexOf("INCLUDE")>=0);
+        Transformer transformer = createTransformer();
+        return mapReader.createCommonURI(transformer, "", true);
+
     }
     
-    public void testFilter() throws JSONException, UnsupportedEncodingException, URISyntaxException{
-
-    	PJsonObject wms_full = new PJsonObject(wmsSpec1.getInternalObj(), "");
-    	
-    	WMSMapReader wmsreader1 = getMapReader(wms_full);                
-        assertTrue(wmsreader1.filters.size()>0);
-        Map<String, List<String>> result = new HashMap<String, List<String>>();
-        wmsreader1.addCommonQueryParams(result, transformer, "EPSG:4326", false);        
-        assertTrue(result.containsKey("CQL_FILTER"));
-    }
-    
-    public void testMergeEqualFilters() throws JSONException, URISyntaxException, IOException{
-
-    	PJsonObject wms_full_1 = new PJsonObject(wmsSpec1.getInternalObj(), "");    	
-    	WMSMapReader wmsreader1 = getMapReader(wms_full_1);                
+    private WMSMapReader createMapReader(PJsonObject layer) {
+        final List<MapReader> mapReaders = new WMSMapReader.Factory().create("wms", context, layer);
         
-        PJsonObject wms_full_2 = new PJsonObject(wmsSpec2.getInternalObj(), "");    	
-        WMSMapReader wmsreader2 = getMapReader(wms_full_2);
-        
-        assertTrue(wmsreader1.canMerge(wmsreader2));
-        wmsreader1.testMerge(wmsreader2);
-        assertEquals(2, wmsreader1.layers.size());        
-        wmsreader1.render(transformer, null, "EPSG:4326", false);
-        List<URI> tiles = TestTileRenderer.lastURIs;
-        assertTrue(tiles.size() > 0);
-        String queryString = tiles.get(0).getRawQuery();
-        String cqlFilter = getQueryParam(queryString, "CQL_FILTER");
-        assertEquals(2, cqlFilter.split(";").length);        
+        WMSMapReader mapReader = (WMSMapReader) mapReaders.get(0);
+        for(int count = 1; count< mapReaders.size(); count++) {
+            mapReader.testMerge(mapReaders.get(count));
+        }
+        return mapReader;
     }
 
-	private String getQueryParam(String queryString, String key) {
-		for(String keyValuePair : queryString.split("&")) {
-			String[] keyValue = keyValuePair.split("=");
-			if(keyValue[0].equalsIgnoreCase(key)) {
-				return URLDecoder.decode(keyValue[1]);
-			}
-		}
-		return null;
-	}
+    private URI createTileUri(PJsonObject jsonParams, FakeHttpd.Route... routes) throws IOException, JSONException, URISyntaxException {
+        server.addRoutes(routes);
+        server.start();
+        String srs = jsonParams.getString("srs");
 
-	private WMSMapReader getMapReader(PJsonObject params) {
-		List<? extends MapReader> readers = factory.create("WMS", context, params);
-		if(readers != null && readers.size() > 0) {
-			return (WMSMapReader)readers.get(0);
-		}
-		return null;
-	}
-	
+        context.getGlobalParams().getInternalObj().accumulate("srs", srs);
+        final List<MapReader> mapReaders = new WMSMapReader.Factory().create("wms", context, jsonParams.getJSONArray("layers").getJSONObject(0));
+
+        assertEquals(1, mapReaders.size());
+
+        final WMSMapReader reader = (WMSMapReader) mapReaders.get(0);
+
+        Transformer transformer = createTransformer();
+        URI commonUri = reader.createCommonURI(transformer, srs, true);
+        return reader.getTileUri(commonUri, transformer, 0, 10, 90, 45, 300, 300);
+    }
+
+    protected String loadFileFromClasspath(String classPathPath) throws IOException {
+        final InputStream stream = MapTestBasic.class.getResourceAsStream(classPathPath);
+        return FileUtilities.readWholeTextStream(stream, "UTF-8");
+    }
+
+    private Transformer createTransformer() {
+        float centerX = 430552.3f;
+        float centerY = 265431.9f;
+        float paperWidth = 440.0f;
+        float paperHeight = 483.0f;
+        int scale = 75000;
+        int dpi = 300;
+        DistanceUnit unitEnum = DistanceUnit.fromString("m");
+        double rotation = 0.0;
+        String geodeticSRS = null;
+        boolean isIntegerSvg = true;
+        return new Transformer(centerX, centerY, paperWidth, paperHeight, scale, dpi, unitEnum,
+                rotation, geodeticSRS, isIntegerSvg, false);
+    }
 }

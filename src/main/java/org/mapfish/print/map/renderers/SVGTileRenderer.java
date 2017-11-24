@@ -19,6 +19,7 @@
 
 package org.mapfish.print.map.renderers;
 
+import com.itextpdf.awt.PdfGraphics2D;
 import java.awt.Graphics2D;
 import java.awt.print.PageFormat;
 import java.awt.print.Paper;
@@ -29,6 +30,7 @@ import java.io.OutputStream;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.List;
 import java.util.Map;
 
 import javax.xml.transform.TransformerFactory;
@@ -51,9 +53,9 @@ import org.mapfish.print.map.ParallelMapTileLoader;
 import org.w3c.dom.Document;
 import org.xml.sax.InputSource;
 
-import com.lowagie.text.DocumentException;
-import com.lowagie.text.pdf.PdfContentByte;
-import com.lowagie.text.pdf.PdfGState;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.pdf.PdfContentByte;
+import com.itextpdf.text.pdf.PdfGState;
 
 public class SVGTileRenderer extends TileRenderer {
     public static final Logger LOGGER = Logger.getLogger(SVGTileRenderer.class);
@@ -91,7 +93,7 @@ public class SVGTileRenderer extends TileRenderer {
         }
     }
 
-    public void render(final Transformer transformer, java.util.List<URI> uris, ParallelMapTileLoader parallelMapTileLoader, final RenderingContext context, final float opacity, int nbTilesHorizontal, float offsetX, float offsetY, long bitmapTileW, long bitmapTileH) throws IOException {
+    public void render(final Transformer transformer, List<URI> uris, ParallelMapTileLoader parallelMapTileLoader, final RenderingContext context, final float opacity, int nbTilesHorizontal, double offsetX, double offsetY, long bitmapTileW, long bitmapTileH) throws IOException {
         if (uris.size() != 1) {
             //tiling not supported in SVG
             throw new InvalidValueException("format", "application/x-pdf");
@@ -123,8 +125,7 @@ public class SVGTileRenderer extends TileRenderer {
                     //gs.setBlendMode(PdfGState.BM_SOFTLIGHT);
                     dc.setGState(gs);
                 }
-
-                Graphics2D g2 = dc.createGraphics(transformer.getRotatedSvgW(), transformer.getRotatedSvgH());
+                PdfGraphics2D g2 = new PdfGraphics2D(dc, transformer.getRotatedSvgW(), transformer.getRotatedSvgH());
 
                 //avoid a warning from Batik
                 System.setProperty("org.apache.batik.warn_destination", "false");

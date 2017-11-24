@@ -28,7 +28,7 @@ import org.mapfish.print.RenderingContext;
 import org.mapfish.print.config.layout.Page.Position;
 import org.mapfish.print.utils.PJsonObject;
 
-import com.lowagie.text.DocumentException;
+import com.itextpdf.text.DocumentException;
 
 /**
  * Bean to configure the pages added for each requested maps.
@@ -44,7 +44,7 @@ public class MainPage extends Page {
     }
 
     public void printClientConfig(JSONWriter json) throws JSONException {
-        MapBlock map = getMap();
+        MapBlock map = getMap(null);
         if (map != null) {
             json.key("map");
             map.printClientConfig(json);
@@ -70,11 +70,11 @@ public class MainPage extends Page {
         super.render(params, context);
     }
 
-    public MapBlock getMap() {
+    public MapBlock getMap(String name) {
         MapBlock result = null;
         for (int i = 0; i < items.size() && result == null; i++) {
             Block block = items.get(i);
-            result = block.getMap();
+            result = block.getMap(name);
         }
         return result;
     }

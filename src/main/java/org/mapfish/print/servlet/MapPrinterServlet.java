@@ -19,13 +19,24 @@
 
 package org.mapfish.print.servlet;
 
+import com.google.common.io.CharStreams;
+import com.google.common.io.Closer;
+import org.apache.log4j.Logger;
+import org.pvalsecc.misc.FileUtilities;
+import org.mapfish.print.utils.PJsonObject;
+import org.mapfish.print.output.OutputFormat;
+import org.mapfish.print.MapPrinter;
+import org.mapfish.print.Constants;
+import org.json.JSONWriter;
+
+import org.json.JSONException;
+
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
@@ -35,6 +46,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -43,23 +55,13 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.json.JSONException;
-import org.json.JSONObject;
-import org.json.JSONWriter;
-import org.mapfish.print.Constants;
-import org.mapfish.print.MapPrinter;
-import org.mapfish.print.output.OutputFormat;
-import org.mapfish.print.output.PdfOutputFactory;
-import org.mapfish.print.utils.PJsonArray;
-import org.mapfish.print.utils.PJsonObject;
-import org.pvalsecc.misc.FileUtilities;
-
-import com.lowagie.text.DocumentException;
+import com.itextpdf.text.DocumentException;
 
 /**
  * Main print servlet.
  */
 public class MapPrinterServlet extends BaseMapServlet {
+    public static final Logger SPEC_LOGGER = Logger.getLogger(BaseMapServlet.class.getPackage().toString() + ".spec");
     private static final long serialVersionUID = -4706371598927161642L;
     private static final String CONTEXT_TEMPDIR = "javax.servlet.context.tempdir";
 
@@ -74,8 +76,7 @@ public class MapPrinterServlet extends BaseMapServlet {
     private static final int TEMP_FILE_PURGE_SECONDS = 10 * 60;
 
     private File tempDir = null;
-    
-    private Boolean cluster = null;
+    private String encoding = null;
     /**
      * Tells if a thread is alread purging the old temporary files or not.
      */
@@ -87,7 +88,11 @@ public class MapPrinterServlet extends BaseMapServlet {
 
     protected void doGet(HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) throws ServletException, IOException {
         //do the routing in function of the actual URL
-        final String additionalPath = httpServletRequest.getPathInfo();
+        String additionalPath = httpServletRequest.getPathInfo().trim();
+        if (additionalPath.isEmpty()) {
+            // handle an odd case where path info returns an empty string
+            additionalPath = httpServletRequest.getServletPath();
+        }
         if (additionalPath.equals(PRINT_URL)) {
             createAndGetPDF(httpServletRequest, httpServletResponse);
         } else if (additionalPath.equals(INFO_URL)) {
@@ -122,23 +127,13 @@ public class MapPrinterServlet extends BaseMapServlet {
     public void destroy() {
         synchronized (tempFiles) {
             for (File file : tempFiles.values()) {
-                deleteTempFile(file);
+                deleteFile(file);
             }
             tempFiles.clear();
         }
         super.destroy();
     }
 
-    protected void deleteTempFile(File tempFile) {
-        deleteFile(tempFile);
-        if(isCluster() && tempFile != null) {
-            File specFile = new File(tempFile.getAbsolutePath()+".json");
-            if(specFile.exists()) {
-                deleteFile(specFile);
-            }
-        }
-    }
-    
     /**
      * All in one method: create and returns the PDF to the client. Avoid to use
      * it, the accents in the spec are not all supported.
@@ -173,7 +168,7 @@ public class MapPrinterServlet extends BaseMapServlet {
         } catch (Throwable e) {
             error(httpServletResponse, e);
         } finally {
-            deleteTempFile(tempFile);
+            deleteFile(tempFile);
         }
     }
 
@@ -186,20 +181,14 @@ public class MapPrinterServlet extends BaseMapServlet {
             purgeOldTemporaryFiles();
 
             String spec = getSpecFromPostBody(httpServletRequest);
-            
             tempFile = doCreatePDFFile(spec, httpServletRequest);
             if (tempFile == null) {
                 error(httpServletResponse, "Missing 'spec' parameter", 500);
                 return;
             }
-            if(isCluster()) {
-                doCreateSharedSpec(spec, tempFile);
-            }
         } catch (Throwable e) {
-        	error(httpServletResponse, e);
-        	if(tempFile != null) {
-        		deleteTempFile(tempFile);
-        	}
+            deleteFile(tempFile);
+            error(httpServletResponse, e);
             return;
         }
 
@@ -215,10 +204,10 @@ public class MapPrinterServlet extends BaseMapServlet {
             }
             json.endObject();
         } catch (JSONException e) {
-            deleteTempFile(tempFile);
+            deleteFile(tempFile);
             throw new ServletException(e);
         } catch (IOException e) {
-            deleteTempFile(tempFile);
+            deleteFile(tempFile);
             throw new ServletException(e);
         } finally {
             if(writer != null) {
@@ -226,23 +215,6 @@ public class MapPrinterServlet extends BaseMapServlet {
             }
         }
         addTempFile(tempFile, id);
-    }
-
-    
-
-    protected void doCreateSharedSpec(String spec, TempFile tempFile) throws IOException {
-        BufferedWriter out = null;
-        try {
-            File specFile = new File(tempFile.getAbsolutePath() + ".json");
-            out = new BufferedWriter(new FileWriter(specFile));
-            out.write(spec);
-        } catch (IOException e) {
-            deleteTempFile(tempFile);
-            throw e;        
-        } finally {
-            if (out != null)
-                out.close();
-        }
     }
 
     protected void addTempFile(TempFile tempFile, String id) {
@@ -255,18 +227,30 @@ public class MapPrinterServlet extends BaseMapServlet {
         if(httpServletRequest.getParameter("spec") != null) {
             return httpServletRequest.getParameter("spec");
         }
-        BufferedReader data = httpServletRequest.getReader();
+
+        Closer closer = Closer.create();
         try {
-            StringBuilder spec = new StringBuilder();
-            String cur;
-            while ((cur = data.readLine()) != null) {
-                spec.append(cur).append("\n");
-            }
-            return spec.toString();
+            final InputStreamReader reader = closer.register(new InputStreamReader(httpServletRequest.getInputStream(), getEncoding()));
+            BufferedReader bufferedReader = closer.register(new BufferedReader(reader));
+            final String spec = CharStreams.toString(bufferedReader);
+            return spec;
         } finally {
-            if(data != null) {
-                data.close();
-            }
+            closer.close();
+        }
+    }
+    
+    /**
+     * Get and cache the used Encoding.
+     */
+    protected String getEncoding() {
+        if (encoding == null) {
+        	encoding = getInitParameter("encoding");
+        	LOGGER.debug("Using '" + encoding + "' to encode Inputcontent.");
+        }
+        if (encoding == null) {
+            return "UTF-8";
+        } else {
+            return encoding;
         }
     }
 
@@ -274,39 +258,14 @@ public class MapPrinterServlet extends BaseMapServlet {
      * To get the PDF created previously.
      */
     protected void getFile(HttpServletRequest req, HttpServletResponse httpServletResponse, String id) throws IOException, ServletException {
-        TempFile file;
-        
-        if(isCluster()) {
-            File tempFileCandidate = new File(getTempDir() + File.separator + TEMP_FILE_PREFIX + id + TEMP_FILE_SUFFIX);
-            File specFile = new File(tempFileCandidate.getAbsolutePath() + ".json");
-            if(tempFileCandidate.exists()) {
-                PJsonObject jsonSpec = null;
-                OutputFormat outputFormat = null; 
-                if(specFile.exists()) {
-                    jsonSpec = getSpecJson(FileUtilities.readWholeTextFile(specFile));
-                    MapPrinter mapPrinter = getMapPrinter(app);
-                    outputFormat = mapPrinter.getOutputFormat(jsonSpec);
-                } else {
-                    jsonSpec = new PJsonObject(new JSONObject(), "tempFile");
-                    outputFormat = new PdfOutputFactory();
-                }
-                
-                file = new TempFile(tempFileCandidate, jsonSpec, outputFormat);
-            } else {
-                error(httpServletResponse, "File with id=" + id + " unknown", 404);
-                return;
-            }
-            
-        } else {
-            synchronized (tempFiles) {
-                file = tempFiles.get(id);
-            }
-            if (file == null && !isCluster()) {
-                error(httpServletResponse, "File with id=" + id + " unknown", 404);
-                return;
-            }
+        final TempFile file;
+        synchronized (tempFiles) {
+            file = tempFiles.get(id);
         }
-        
+        if (file == null) {
+            error(httpServletResponse, "File with id=" + id + " unknown", 404);
+            return;
+        }
         sendPdfFile(httpServletResponse, file, Boolean.parseBoolean(req.getParameter("inline")));
     }
 
@@ -318,36 +277,45 @@ public class MapPrinterServlet extends BaseMapServlet {
         //System.out.println("app = "+app);
 
         MapPrinter printer = getMapPrinter(app);
-        resp.setContentType("application/json; charset=utf-8");
-        final PrintWriter writer = resp.getWriter();
-
         try {
-            final String var = req.getParameter("var");
-            if (var != null) {
-                writer.print(var + "=");
-            }
+            resp.setContentType("application/json; charset=utf-8");
+            final PrintWriter writer = resp.getWriter();
 
-            JSONWriter json = new JSONWriter(writer);
             try {
-                json.object();
-                {
-                    printer.printClientConfig(json);
-                    json.key("printURL").value(basePath + PRINT_URL);
-                    json.key("createURL").value(basePath + CREATE_URL);
-                    if (app != null) {
-                        json.key("app").value(app);
-                    }
+                final String var = req.getParameter("var");
+                if (var != null) {
+                    writer.print(var + "=");
                 }
-                json.endObject();
-            } catch (JSONException e) {
-                throw new ServletException(e);
-            }
-            if (var != null) {
-                writer.print(";");
+
+                JSONWriter json = new JSONWriter(writer);
+                try {
+                    json.object();
+                    {
+                        printer.printClientConfig(json);
+                        String urlToUseInSpec = basePath;
+
+                        String proxyUrl = printer.getConfig().getProxyBaseUrl();
+                        if (proxyUrl != null) {
+                            urlToUseInSpec = proxyUrl;
+                        }
+                        json.key("printURL").value(urlToUseInSpec + PRINT_URL);
+                        json.key("createURL").value(urlToUseInSpec + CREATE_URL);
+                        if (app != null) {
+                            json.key("app").value(app);
+                        }
+                    }
+                    json.endObject();
+                } catch (JSONException e) {
+                    throw new ServletException(e);
+                }
+                if (var != null) {
+                    writer.print(";");
+                }
+            } finally {
+                writer.close();
             }
         } finally {
-            writer.close();
-            if(app == null && printer != null) {
+            if (printer != null) {
                 printer.stop();
             }
         }
@@ -363,68 +331,66 @@ public class MapPrinterServlet extends BaseMapServlet {
             LOGGER.debug("Generating PDF for spec=" + spec);
         }
 
-        PJsonObject specJson = getSpecJson(spec);
-
-        Map<String, String> headers = new HashMap<String, String>();
-        if (httpServletRequest.getHeader("Referer") != null) {
-            headers.put("Referer", httpServletRequest.getHeader("Referer"));
+        if (SPEC_LOGGER.isInfoEnabled()) {
+            SPEC_LOGGER.info(spec);
         }
-        if (httpServletRequest.getHeader("Cookie") != null) {
-            headers.put("Cookie", httpServletRequest.getHeader("Cookie"));
-        }
-        PJsonArray forwarded = specJson.optJSONArray("forwardHeaders");
-        if(forwarded != null) {
-            for(int count = 0; count < forwarded.size(); count++) {
-                String header = forwarded.getString(count);
-                if(header != null && httpServletRequest.getHeader(header) != null) {
-                    if (LOGGER.isDebugEnabled()) {
-                        LOGGER.debug("Forwarding header: " + header);
-                    }
-                    headers.put(header, httpServletRequest.getHeader(header));
-                }
-            }
-        }
-        MapPrinter mapPrinter = getMapPrinter(app);
-        final OutputFormat outputFormat = mapPrinter.getOutputFormat(specJson);
-        //create a temporary file that will contain the PDF
-        final File tempJavaFile = File.createTempFile(TEMP_FILE_PREFIX, "."+outputFormat.getFileSuffix()+TEMP_FILE_SUFFIX, getTempDir());
-        TempFile tempFile = new TempFile(tempJavaFile, specJson, outputFormat);
 
-        FileOutputStream out = null;
-        try {
-            out = new FileOutputStream(tempFile);
-            mapPrinter.print(specJson, out, headers);
-
-            return tempFile;
-        } catch (IOException e) {
-            deleteTempFile(tempFile);
-            throw e;
-        } catch (DocumentException e) {
-            deleteTempFile(tempFile);
-            throw e;
-        } catch (InterruptedException e) {
-            deleteTempFile(tempFile);
-            throw e;
-        } finally {
-            if (out != null)
-                out.close();
-            if(app == null && mapPrinter != null) {
-                mapPrinter.stop();
-            }
-        }
-    }
-
-    protected PJsonObject getSpecJson(String spec) {
         PJsonObject specJson = MapPrinter.parseSpec(spec);
         if (specJson.has("app")) {
             app = specJson.getString("app");
         } else {
             app = null;
         }
-        return specJson;
+
+        MapPrinter mapPrinter = getMapPrinter(app);
+        try {
+            Map<String, String> headers = new HashMap<String, String>();
+            TreeSet<String> configHeaders = mapPrinter.getConfig().getHeaders();
+            if (configHeaders == null) {
+                configHeaders = new TreeSet<String>();
+                configHeaders.add("Referer");
+                configHeaders.add("Cookie");
+            }
+            for (Iterator<String> header_iter = configHeaders.iterator(); header_iter.hasNext();) {
+                String header = header_iter.next();
+                if (httpServletRequest.getHeader(header) != null) {
+                    headers.put(header, httpServletRequest.getHeader(header));
+                }
+            }
+
+            final OutputFormat outputFormat = mapPrinter.getOutputFormat(specJson);
+            // create a temporary file that will contain the PDF
+            final File tempJavaFile = File.createTempFile(TEMP_FILE_PREFIX,
+                    "." + outputFormat.getFileSuffix() + TEMP_FILE_SUFFIX, getTempDir());
+            TempFile tempFile = new TempFile(tempJavaFile, specJson, outputFormat);
+
+            FileOutputStream out = null;
+            try {
+                out = new FileOutputStream(tempFile);
+                mapPrinter.print(specJson, out, headers);
+
+                return tempFile;
+            } catch (IOException e) {
+                deleteFile(tempFile);
+                throw e;
+            } catch (DocumentException e) {
+                deleteFile(tempFile);
+                throw e;
+            } catch (InterruptedException e) {
+                deleteFile(tempFile);
+                throw e;
+            } finally {
+                if (out != null) {
+                    out.close();
+                }
+            }
+        } finally {
+            if (mapPrinter != null) {
+                mapPrinter.stop();
+            }
+        }
     }
 
-    
     /**
      * copy the PDF into the output stream
      */
@@ -434,20 +400,19 @@ public class MapPrinterServlet extends BaseMapServlet {
         MapPrinter mapPrinter = getMapPrinter(app);
         try {
             httpServletResponse.setContentType(tempFile.contentType());
-
             if (!inline) {
                 final String fileName = tempFile.getOutputFileName(mapPrinter);
                 httpServletResponse.setHeader("Content-disposition", "attachment; filename=" + fileName);
             }
             FileUtilities.copyStream(pdf, response);
         } finally {
+            if (mapPrinter != null) {
+                mapPrinter.stop();
+            }
             try {
                 pdf.close();
-            } finally{
+            } finally {
                 response.close();
-            }
-            if(app == null && mapPrinter != null) {
-                mapPrinter.stop();
             }
         }
     }
@@ -515,24 +480,6 @@ public class MapPrinterServlet extends BaseMapServlet {
         LOGGER.debug("Using '" + tempDir.getAbsolutePath() + "' as temporary directory");
         return tempDir;
     }
-    
-    /**
-     * Get and cache the temporary directory to use for saving the generated PDF files.
-     */
-    protected boolean isCluster() {
-        if (cluster == null) {
-            String clusterValue = getInitParameter("cluster");
-            if (clusterValue != null) {
-                cluster = Boolean.valueOf(clusterValue);
-            } else {
-                cluster = false;
-            }
-            
-
-        }
-        LOGGER.debug("Clustering " + (cluster ? "enabled" : "disabled"));
-        return cluster;
-    }
 
     /**
      * If the file is defined, delete it.
@@ -579,7 +526,7 @@ public class MapPrinterServlet extends BaseMapServlet {
                 while (it.hasNext()) {
                     Map.Entry<String, TempFile> entry = it.next();
                     if (entry.getValue().creationTime < minTime) {
-                        deleteTempFile(entry.getValue());
+                        deleteFile(entry.getValue());
                         it.remove();
                     }
                 }

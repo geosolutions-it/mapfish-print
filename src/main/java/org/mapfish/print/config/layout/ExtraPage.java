@@ -25,7 +25,7 @@ import java.util.List;
 import org.mapfish.print.RenderingContext;
 import org.mapfish.print.utils.PJsonObject;
 
-import com.lowagie.text.DocumentException;
+import com.itextpdf.text.DocumentException;
 
 /**
  * Bean to configure a dynamic page before/between/after other pages.
