@@ -34,8 +34,7 @@ public class XYZLayerTest extends MapTestBasic {
     @Test
     public void testUriWithoutFormat() throws IOException, JSONException, URISyntaxException {
         String test_format = null;
-        // String expected_url = xyzSpec.getString("baseURL") + "/7/64/63.gif";
-        String expected_url = xyzSpec.getString("baseURL") + "/7/15/14.gif";
+        String expected_url = xyzSpec.getString("baseURL") + "/7/64/63.gif";
 
         JSONObject xyz_full = xyzSpec.getInternalObj();
         xyz_full.put("path_format", test_format);

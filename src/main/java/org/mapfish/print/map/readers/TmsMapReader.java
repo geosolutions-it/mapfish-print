@@ -109,14 +109,19 @@ public class TmsMapReader extends TileableMapReader {
         int tileY = (int) Math
                 .round((minGeoY - tileCacheLayerInfo.getMinY()) / (resolution.value * h));
 
+        int tileX1 = tileX;
+        int tileY1 = tileY;
+
         // Wrap Date Line
-        tileX = (int) (tileX < 0 ? Math.pow(resolution.index, 2) + tileX : tileX);
-        tileY = (int) (tileY < 0 ? Math.pow(resolution.index, 2) + tileY : tileY);
-
-        int tileX1 = (int) Math.round(tileX % Math.pow(resolution.index, 2));
-        int tileY1 = (int) Math.round(tileY % Math.pow(resolution.index, 2));
-
-        tileY1 = (int) (tileY1 < 0 ? Math.pow(resolution.index, 2) + tileY1 : tileY1);
+        if (resolution.index < 3) {
+            tileX = (int) (tileX < 0 ? Math.pow(resolution.index, 2) + tileX : tileX);
+            tileY = (int) (tileY < 0 ? Math.pow(resolution.index, 2) + tileY : tileY);
+    
+            tileX1 = (int) Math.round(tileX % Math.pow(resolution.index, 2));
+            tileY1 = (int) Math.round(tileY % Math.pow(resolution.index, 2));
+    
+            tileY1 = (int) (tileY1 < 0 ? Math.pow(resolution.index, 2) + tileY1 : tileY1);
+        }
 
         StringBuilder path = new StringBuilder();
         if (!commonUri.getPath().endsWith("/")) {
