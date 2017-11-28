@@ -35,6 +35,7 @@ public class XYZLayerTest extends MapTestBasic {
     public void testUriWithoutFormat() throws IOException, JSONException, URISyntaxException {
         String test_format = null;
         String expected_url = xyzSpec.getString("baseURL") + "/7/64/63.gif";
+        // Wrap Date Line: String expected_url = xyzSpec.getString("baseURL") + "/7/15/14.gif";
 
         JSONObject xyz_full = xyzSpec.getInternalObj();
         xyz_full.put("path_format", test_format);
@@ -51,7 +52,6 @@ public class XYZLayerTest extends MapTestBasic {
     public void testUriWithBasicFormat() throws IOException, JSONException, URISyntaxException {
         String test_format = "${z}_${x}_${y}_static.${extension}";
         String expected_url = xyzSpec.getString("baseURL") + "/7_64_63_static.gif";
-
 
         JSONObject xyz_full = xyzSpec.getInternalObj();
         xyz_full.put("path_format", test_format);

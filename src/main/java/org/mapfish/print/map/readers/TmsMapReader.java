@@ -110,13 +110,14 @@ public class TmsMapReader extends TileableMapReader {
                 .round((minGeoY - tileCacheLayerInfo.getMinY()) / (resolution.value * h));
 
         // Wrap Date Line
+        /* Disabled for now
         tileX = (int) (tileX < 0 ? Math.pow(resolution.index, 2) + tileX : tileX);
         tileY = (int) (tileY < 0 ? Math.pow(resolution.index, 2) + tileY : tileY);
 
         int tileX1 = (int) Math.round(tileX % Math.pow(resolution.index, 2));
         int tileY1 = (int) Math.round(tileY % Math.pow(resolution.index, 2));
 
-        tileY1 = (int) (tileY1 < 0 ? Math.pow(resolution.index, 2) + tileY1 : tileY1);
+        tileY1 = (int) (tileY1 < 0 ? Math.pow(resolution.index, 2) + tileY1 : tileY1); */
 
         StringBuilder path = new StringBuilder();
         if (!commonUri.getPath().endsWith("/")) {
@@ -126,8 +127,10 @@ public class TmsMapReader extends TileableMapReader {
         path.append(this.serviceVersion);
         path.append('/').append(this.layerName);
         path.append('/').append(String.format("%02d", resolution.index));
-        path.append('/').append(tileX1);
-        path.append('/').append(tileY1);
+        // path.append('/').append(tileX1);
+        // path.append('/').append(tileY1);
+        path.append('/').append(tileX);
+        path.append('/').append(tileY);
         path.append('.').append(this.format);
 
         return new URI(commonUri.getScheme(), commonUri.getUserInfo(), commonUri.getHost(),
