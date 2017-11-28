@@ -436,7 +436,9 @@ public class PDFUtils {
                     result.add(context.getCustomBlocks().getOrCreateTotalPagesBlock(font));
                 } else {
                     value = getContextValue(context, params, varName, mapName);
-                    result.add(value);
+                    final String text = (val.toLowerCase().indexOf("title") > 0 && value.length() > 100 ? 
+                            value.substring(0, 97) + "..." : value);
+                    result.add(text);
                 }
                 val = val.substring(matcher.end());
             } else {
@@ -461,7 +463,6 @@ public class PDFUtils {
                 result.add(val);
             }
         } else {
-            val = (val.length() > 100 ? val.substring(0, 100) : val);
             result.add(val);
         }
         return result;

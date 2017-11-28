@@ -32,27 +32,36 @@ import com.itextpdf.text.Element;
 import com.itextpdf.text.PageSize;
 import com.itextpdf.text.Rectangle;
 
-
 /**
  * Holds the config of a page and knows how to print it.
  */
 public class Page {
-	
-	public static enum Position {
-		NONE, MAIN_PAGE, TITLE_PAGE, LAST_PAGE
-				
-	}
-	
+
+    public static enum Position {
+        NONE, MAIN_PAGE, TITLE_PAGE, LAST_PAGE
+
+    }
+
     protected List<Block> items;
+
     private String pageSize = "A4";
+
     private HeaderFooter header = null;
+
     private HeaderFooter footer = null;
+
     private String marginLeft = "40";
+
     private String marginRight = "40";
+
     private String marginTop = "20";
+
     private String marginBottom = "20";
+
     private String backgroundPdf = null;
+
     private boolean landscape = false;
+
     private String condition = null;
 
     public void render(PJsonObject params, RenderingContext context) throws DocumentException {
@@ -64,7 +73,8 @@ public class Page {
                     getMarginTop(context, params) + (header != null ? header.getHeight() : 0),
                     getMarginBottom(context, params) + (footer != null ? footer.getHeight() : 0));
 
-            context.getCustomBlocks().setBackgroundPdf(PDFUtils.evalString(context, params, backgroundPdf, null));
+            context.getCustomBlocks()
+                    .setBackgroundPdf(PDFUtils.evalString(context, params, backgroundPdf, null));
             if (doc.isOpen()) {
                 doc.newPage();
             } else {
@@ -89,10 +99,10 @@ public class Page {
     }
 
     protected Position getCurrentPosition() {
-		return Position.NONE;
-	}
+        return Position.NONE;
+    }
 
-	public Rectangle getPageSizeRect(RenderingContext context, PJsonObject params) {
+    public Rectangle getPageSizeRect(RenderingContext context, PJsonObject params) {
         final Rectangle result = PageSize.getRectangle(getPageSize(context, params));
         if (landscape) {
             return result.rotate();
@@ -187,31 +197,34 @@ public class Page {
      * @throws InvalidValueException When there is a problem
      */
     public void validate() {
-        if (items == null) throw new InvalidValueException("items", "null");
-        if (items.size() < 1) throw new InvalidValueException("items", "[]");
+        if (items == null)
+            throw new InvalidValueException("items", "null");
+        if (items.size() < 1)
+            throw new InvalidValueException("items", "[]");
         for (int i = 0; i < items.size(); i++) {
             items.get(i).validate();
         }
 
-        if (header != null) header.validate();
-        if (footer != null) footer.validate();
+        if (header != null)
+            header.validate();
+        if (footer != null)
+            footer.validate();
     }
-    
+
     /**
-     * Apply this page format properties (size, margins, etc.) to
-     * another page.
+     * Apply this page format properties (size, margins, etc.) to another page.
      * 
      * @param other
      */
     public void applyPageFormat(Page other) {
-    	other.pageSize = pageSize;
-    	other.landscape = landscape;
-    	other.marginBottom = marginBottom;
-    	other.marginTop = marginTop;
-    	other.marginLeft = marginLeft;
-    	other.marginRight = marginRight;
-    	other.backgroundPdf = backgroundPdf;
-    	other.header = header;
-    	other.footer = footer;
+        other.pageSize = pageSize;
+        other.landscape = landscape;
+        other.marginBottom = marginBottom;
+        other.marginTop = marginTop;
+        other.marginLeft = marginLeft;
+        other.marginRight = marginRight;
+        other.backgroundPdf = backgroundPdf;
+        other.header = header;
+        other.footer = footer;
     }
 }

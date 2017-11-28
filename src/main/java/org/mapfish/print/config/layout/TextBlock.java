@@ -44,9 +44,9 @@ public class TextBlock extends FontBlock {
         final Font pdfFont = getPdfFont();
         paragraph.setFont(pdfFont);
 
-        final Phrase text = PDFUtils.renderString(context, params, this.text, pdfFont, null,
+        final Phrase phrase = PDFUtils.renderString(context, params, text, pdfFont, null,
                 asHTML);
-        paragraph.add(text);
+        paragraph.add(phrase);
 
         if (getAlign() != null) paragraph.setAlignment(getAlign().getCode());
         paragraph.setSpacingAfter((float) spacingAfter);
