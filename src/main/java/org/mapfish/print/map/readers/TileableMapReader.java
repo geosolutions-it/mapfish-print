@@ -92,28 +92,35 @@ public abstract class TileableMapReader extends HTTPMapReader {
                 if (LOGGER.isDebugEnabled()) {
                     LOGGER.debug("Default min geo x and y calculation used");
                 }
-                tileMinGeoX = (float) (tileCacheLayerInfo.getOriginX() + (Math.floor(
-                    (minGeoX - tileCacheLayerInfo.getOriginX()) / tileGeoWidth
-                ) * tileGeoWidth));
-                tileMinGeoY = (float) (tileCacheLayerInfo.getOriginY() + (Math.floor(
-                    (minGeoY - tileCacheLayerInfo.getOriginY()) / tileGeoHeight
-                ) * tileGeoHeight));
+                final double rescaledMinGeoX = Math
+                        .floor((minGeoX - tileCacheLayerInfo.getOriginX()) / tileGeoWidth);
+
+                tileMinGeoX = (float) (tileCacheLayerInfo.getOriginX()
+                        + (rescaledMinGeoX * tileGeoWidth));
+
+                final double rescaledMinGeoY = Math
+                        .floor((minGeoY - tileCacheLayerInfo.getOriginY()) / tileGeoHeight);
+
+                tileMinGeoY = (float) (tileCacheLayerInfo.getOriginY()
+                        + (rescaledMinGeoY * tileGeoHeight));
             }
 
             offsetX = (minGeoX - tileMinGeoX) / transformer.getResolution();
             offsetY = (minGeoY - tileMinGeoY) / transformer.getResolution();
-            for (float geoY = tileMinGeoY; geoY < maxGeoY; geoY += tileGeoHeight) {
+            for (float geoY = tileMinGeoY; geoY <= maxGeoY; geoY += tileGeoHeight) {
                 nbTilesW = 0;
-                for (float geoX = tileMinGeoX; geoX < maxGeoX; geoX += tileGeoWidth) {
+                for (float geoX = tileMinGeoX; geoX <= maxGeoX; geoX += tileGeoWidth) {
                     nbTilesW++;
-                    if (tileCacheLayerInfo.isVisible(geoX, geoY, geoX + tileGeoWidth, geoY + tileGeoHeight)) {
+                    // if (tileCacheLayerInfo.isVisible(geoX, geoY, geoX + tileGeoWidth, geoY + tileGeoHeight)) {
                         urls.add(getTileUri(commonUri, transformer, geoX, geoY, geoX + tileGeoWidth, geoY + tileGeoHeight, bitmapTileW, bitmapTileH));
-                    } else {
-                        if (LOGGER.isDebugEnabled()) {
-                            LOGGER.debug("Tile out of bounds: " + getTileUri(commonUri, transformer, geoX, geoY, geoX + tileGeoWidth, geoY + tileGeoHeight, bitmapTileW, bitmapTileH));
-                        }
-                        urls.add(null);
-                    }
+                    // } else {
+                    // if (LOGGER.isDebugEnabled()) {
+                    // LOGGER.debug("Tile out of bounds: " + getTileUri(commonUri, transformer,
+                    // geoX, geoY, geoX + tileGeoWidth, geoY + tileGeoHeight,
+                    // bitmapTileW, bitmapTileH));
+                    // }
+                    // urls.add(null);
+                    // }
                 }
             }
 
@@ -126,7 +133,9 @@ public abstract class TileableMapReader extends HTTPMapReader {
             bitmapTileH = transformer.getRotatedBitmapH();
             urls.add(getTileUri(commonUri, transformer, minGeoX, minGeoY, maxGeoX, maxGeoY, bitmapTileW, bitmapTileH));
         }
-        formatter.render(transformer, urls, parallelMapTileLoader, context, opacity, nbTilesW, offsetX, offsetY, bitmapTileW, bitmapTileH);
+        // System.out.println(urls);
+        formatter.render(transformer, urls, parallelMapTileLoader, context, opacity, nbTilesW,
+                offsetX, offsetY, bitmapTileW, bitmapTileH);
     }
 
     /**
@@ -136,14 +145,22 @@ public abstract class TileableMapReader extends HTTPMapReader {
         double resolution = Double.NaN;
 
         // if clientResolution is passed from client use it explicitly if available otherwise calculate nearest resolution
-        /*
-         * if (this.context.getCurrentPageParams().getInternalObj() != null && this.context.getCurrentPageParams().getInternalObj().has("scale")) {
-         * try { // double scale = this.context.getCurrentPageParams().getInternalObj() .getDouble("scale"); double scale = transformer.getScale();
-         * double targetResolution = ((this.tileCacheLayerInfo.getMaxY() - this.tileCacheLayerInfo.getMinY()) / (scale *
-         * this.tileCacheLayerInfo.getWidth())); TileCacheLayerInfo.ResolutionInfo resolutionInfo = tileCacheLayerInfo
-         * .getNearestResolution(targetResolution); resolution = resolutionInfo.value; } catch (Exception e) { if (LOGGER.isDebugEnabled()) {
-         * LOGGER.debug(e.getMessage(), e); } } }
-         */
+
+        // if (this.context.getCurrentPageParams().getInternalObj() != null
+        // && this.context.getCurrentPageParams().getInternalObj().has("scale")) {
+        // try { // double scale = this.context.getCurrentPageParams().getInternalObj() .getDouble("scale"); double scale = transformer.getScale();
+        // double targetResolution = ((this.tileCacheLayerInfo.getMaxY()
+        // - this.tileCacheLayerInfo.getMinY())
+        // / (scale * this.tileCacheLayerInfo.getWidth()));
+        // TileCacheLayerInfo.ResolutionInfo resolutionInfo = tileCacheLayerInfo
+        // .getNearestResolution(targetResolution);
+        // resolution = resolutionInfo.value;
+        // } catch (Exception e) {
+        // if (LOGGER.isDebugEnabled()) {
+        // LOGGER.debug(e.getMessage(), e);
+        // }
+        // }
+        // }
 
         if (Double.isNaN(resolution)
                 && this.context.getCurrentPageParams().has("clientResolution")) {

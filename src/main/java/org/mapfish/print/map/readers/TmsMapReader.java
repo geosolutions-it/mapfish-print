@@ -100,11 +100,23 @@ public class TmsMapReader extends TileableMapReader {
     @Override
     protected URI getTileUri(URI commonUri, Transformer transformer, double minGeoX, double minGeoY, double maxGeoX, double maxGeoY, long w, long h) throws URISyntaxException, UnsupportedEncodingException {
         double targetResolution = (maxGeoX - minGeoX) / w;
-        TmsLayerInfo.ResolutionInfo resolution = tileCacheLayerInfo.getNearestResolution(targetResolution);
+        TmsLayerInfo.ResolutionInfo resolution = tileCacheLayerInfo
+                .getNearestResolution(targetResolution);
 
-        int tileX = (int) Math.round((minGeoX - tileCacheLayerInfo.getMinX()) / (resolution.value * w));
-        int tileY = (int) Math.round((minGeoY - tileCacheLayerInfo.getMinY()) / (resolution.value * h));
+        int tileX = (int) Math
+                .round((minGeoX - tileCacheLayerInfo.getMinX()) / (resolution.value * w));
 
+        int tileY = (int) Math
+                .round((minGeoY - tileCacheLayerInfo.getMinY()) / (resolution.value * h));
+
+        // Wrap Date Line
+        tileX = (int) (tileX < 0 ? Math.pow(resolution.index, 2) + tileX : tileX);
+        tileY = (int) (tileY < 0 ? Math.pow(resolution.index, 2) + tileY : tileY);
+
+        int tileX1 = (int) Math.round(tileX % Math.pow(resolution.index, 2));
+        int tileY1 = (int) Math.round(tileY % Math.pow(resolution.index, 2));
+
+        tileY1 = (int) (tileY1 < 0 ? Math.pow(resolution.index, 2) + tileY1 : tileY1);
 
         StringBuilder path = new StringBuilder();
         if (!commonUri.getPath().endsWith("/")) {
@@ -114,12 +126,13 @@ public class TmsMapReader extends TileableMapReader {
         path.append(this.serviceVersion);
         path.append('/').append(this.layerName);
         path.append('/').append(String.format("%02d", resolution.index));
-        path.append('/').append(tileX);
-        path.append('/').append(tileY);
+        path.append('/').append(tileX1);
+        path.append('/').append(tileY1);
         path.append('.').append(this.format);
 
-        return new URI(commonUri.getScheme(), commonUri.getUserInfo(), commonUri.getHost(), commonUri.getPort(),
-                commonUri.getPath() + path, commonUri.getQuery(), commonUri.getFragment());
+        return new URI(commonUri.getScheme(), commonUri.getUserInfo(), commonUri.getHost(),
+                commonUri.getPort(), commonUri.getPath() + path, commonUri.getQuery(),
+                commonUri.getFragment());
     }
     @Override
     public boolean testMerge(MapReader other) {

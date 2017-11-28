@@ -28,7 +28,6 @@ import org.mapfish.print.PDFUtils;
 import org.mapfish.print.RenderingContext;
 import org.mapfish.print.Transformer;
 import org.mapfish.print.map.MapChunkDrawer;
-import org.mapfish.print.map.readers.MapReader;
 import org.mapfish.print.utils.DistanceUnit;
 import org.mapfish.print.utils.Maps;
 import org.mapfish.print.utils.PJsonArray;
@@ -37,11 +36,6 @@ import org.mapfish.print.utils.PJsonObject;
 import com.itextpdf.text.DocumentException;
 import com.itextpdf.text.Rectangle;
 import com.itextpdf.text.pdf.PdfContentByte;
-
-import java.io.Reader;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 
 /**
  * Bean to configure the !map blocks.
@@ -159,7 +153,7 @@ public class MapBlock extends Block {
 
         String srs = null;
         if (params.optBool("geodetic", false)
-            || context.getGlobalParams().optBool("geodetic", false)) {
+                || context.getGlobalParams().optBool("geodetic", false)) {
             srs = params.optString("srs");
             if (srs == null) {
                 srs = context.getGlobalParams().optString("srs");

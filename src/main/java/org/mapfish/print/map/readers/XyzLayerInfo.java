@@ -28,7 +28,7 @@ public class XyzLayerInfo extends TileCacheLayerInfo {
     /**
      * Tolerance we accept when trying to determine the nearest resolution.
      */
-    protected static final double RESOLUTION_TOLERANCE = 1.9;
+    protected static final double RESOLUTION_TOLERANCE = 1.05;
 
     public XyzLayerInfo(String resolutions, int width, int height, float minX, float minY, float maxX, float maxY, String format) {
         super(resolutions, width, height, minX, minY, maxX, maxY, format);

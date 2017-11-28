@@ -191,6 +191,10 @@ public class TileCacheLayerInfo {
         return minY;
     }
 
+    public double getMaxX() {
+        return maxX;
+    }
+
     public double getMaxY() {
         return maxY;
     }
