@@ -151,8 +151,8 @@ public class TMSMapReaderTest extends MapTestBasic {
         int w = 256;
         int h = 256;
         final URI tileUri1 = tmsReader.getTileUri(commonUri, transformer, minGeoX, minGeoY, maxGeoX, maxGeoY, w, h);
-        assertEquals("/08/148/90.png", tileUri1.toString().split("layerName")[1]);
-        // Wrap Date Line: assertEquals("/08/20/26.png", tileUri1.toString().split("layerName")[1]);
+        // assertEquals("/08/148/90.png", tileUri1.toString().split("layerName")[1]);
+        assertEquals("/08/20/26.png", tileUri1.toString().split("layerName")[1]);
 
         minGeoX = 427212.78f;
         minGeoY = 258048.0f;
@@ -161,8 +161,8 @@ public class TMSMapReaderTest extends MapTestBasic {
         w = 256;
         h = 256;
         final URI tileUri2 = tmsReader.getTileUri(commonUri, transformer, minGeoX, minGeoY, maxGeoX, maxGeoY, w, h);
-        assertEquals("/08/149/90.png", tileUri2.toString().split("layerName")[1]);
-        // Wrap Date Line: assertEquals("/08/20/26.png", tileUri1.toString().split("layerName")[1]);
+        // assertEquals("/08/149/90.png", tileUri2.toString().split("layerName")[1]);
+        assertEquals("/08/20/26.png", tileUri1.toString().split("layerName")[1]);
 
         minGeoX = 430079.97f;
         minGeoY = 258048.0f;
@@ -171,8 +171,8 @@ public class TMSMapReaderTest extends MapTestBasic {
         w = 256;
         h = 256;
         final URI tileUri3 = tmsReader.getTileUri(commonUri, transformer, minGeoX, minGeoY, maxGeoX, maxGeoY, w, h);
-        assertEquals("/08/150/90.png", tileUri3.toString().split("layerName")[1]);
-        // Wrap Date Line: assertEquals("/08/20/26.png", tileUri1.toString().split("layerName")[1]);
+        // assertEquals("/08/150/90.png", tileUri3.toString().split("layerName")[1]);
+        assertEquals("/08/20/26.png", tileUri1.toString().split("layerName")[1]);
 
         minGeoX = 432947.16f;
         minGeoY = 258048.0f;
@@ -181,8 +181,8 @@ public class TMSMapReaderTest extends MapTestBasic {
         w = 256;
         h = 256;
         final URI tileUri4 = tmsReader.getTileUri(commonUri, transformer, minGeoX, minGeoY, maxGeoX, maxGeoY, w, h);
-        assertEquals("/08/151/90.png", tileUri4.toString().split("layerName")[1]);
-        // Wrap Date Line: assertEquals("/08/20/26.png", tileUri1.toString().split("layerName")[1]);
+        // assertEquals("/08/151/90.png", tileUri4.toString().split("layerName")[1]);
+        assertEquals("/08/20/26.png", tileUri1.toString().split("layerName")[1]);
 
         System.out.println(tileUri1);
         System.out.println(tileUri2);

@@ -15,11 +15,17 @@ import org.mapfish.print.utils.PJsonObject;
  */
 public class LegendItemTable extends PdfPTable {
     private boolean iconBeforeName = false;
+
     private float spaceBefore = 0f;
+
     private boolean isFirst = false; // whether it is the first
+
     private boolean isHeading = false; // whether it is the heading
+
     private boolean newColumn = false;
+
     private PdfPCell imageCell = null;
+
     private PdfPCell nameCell = null;
 
     /**
@@ -40,7 +46,6 @@ public class LegendItemTable extends PdfPTable {
      * PARAMS
      */
     public class Params {
-
         public float indent;
         public PJsonObject node;
         public Font pdfFont;
@@ -49,14 +54,17 @@ public class LegendItemTable extends PdfPTable {
         public float spaceBefore;
         public boolean heading;
     }
+
     private Params params = new Params();
 
     public LegendItemTable() {
         super(1);
     }
+
     public LegendItemTable(int numberOfColumns) {
         super(numberOfColumns);
     }
+
     /**
      * @return the iconBeforeName
      */
@@ -163,7 +171,8 @@ public class LegendItemTable extends PdfPTable {
      * @param spaceBefore
      * @param heading
      */
-    public void setParams(float indent, PJsonObject node, Font pdfFont, float lineSpace, boolean defaultIconBeforeName, float spaceBefore, boolean heading) {
+    public void setParams(float indent, PJsonObject node, Font pdfFont, float lineSpace,
+            boolean defaultIconBeforeName, float spaceBefore, boolean heading) {
         params.indent = indent;
         params.node = node;
         params.pdfFont = pdfFont;

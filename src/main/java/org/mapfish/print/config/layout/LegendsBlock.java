@@ -895,7 +895,8 @@ public class LegendsBlock extends Block {
         private PdfPCell[] createTableCells(float indent, PJsonObject node, Font pdfFont,
                 float lineSpace, boolean defaultIconBeforeName, float spaceBefore)
                 throws DocumentException {
-            final String name = node.getString("name"); // legend text
+            final String nameString = node.getString("name"); // legend text
+            final String name = (nameString.length() > 100 ? nameString.substring(0, 100) : nameString);
             final String icon = node.optString("icon"); // legend image
             final String color = node.optString("color");
             final PJsonArray iconsArray = node.optJSONArray("icons");
