@@ -424,7 +424,8 @@ public class PDFUtils {
     private static final Pattern VAR_REGEXP = Pattern.compile("\\$\\{([^}]+)\\}");
 
     public static Phrase renderString(RenderingContext context, PJsonObject params, String val,
-            com.itextpdf.text.Font font, String mapName, boolean asHTML) throws DocumentException {
+            int maxLength, com.itextpdf.text.Font font, String mapName, boolean asHTML)
+            throws DocumentException {
         Phrase result = new Phrase();
         while (true) {
             Matcher matcher = VAR_REGEXP.matcher(val);
@@ -436,9 +437,10 @@ public class PDFUtils {
                     result.add(context.getCustomBlocks().getOrCreateTotalPagesBlock(font));
                 } else {
                     value = getContextValue(context, params, varName, mapName);
-                    final String text = (val.toLowerCase().indexOf("title") > 0 && value.length() > 100 ? 
-                            value.substring(0, 97) + "..." : value);
-                    result.add(text);
+                    final String finalText = (maxLength > 0 && value.length() > maxLength
+                            ? value.substring(0, maxLength - 3) + "..."
+                            : value);
+                    result.add(finalText);
                 }
                 val = val.substring(matcher.end());
             } else {

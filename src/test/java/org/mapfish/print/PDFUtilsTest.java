@@ -120,7 +120,7 @@ public class PDFUtilsTest extends PdfTestCase {
         Font font = new Font();
         context.getLayout().getMainPage().getMap(null).setWidth("300");
         context.getLayout().getMainPage().getMap(null).setHeight("600");
-        PDFUtils.renderString(context, params, "${scaleLbl}1:${format %,d scale}", font, null,
+        PDFUtils.renderString(context, params, "${scaleLbl}1:${format %,d scale}", 0, font, null,
                 false);
 
     }
@@ -165,11 +165,11 @@ public class PDFUtilsTest extends PdfTestCase {
         context.getLayout().getMainPage().getMap("other").setHeight("600");
         
         assertTrue(PDFUtils
-                .renderString(context, params, "${scaleLbl}1:${format %,d scale.main}", font, null,
+                .renderString(context, params, "${scaleLbl}1:${format %,d scale.main}", 0, font, null,
                         false)
                 .getContent().contains("1:25"));
         assertTrue(PDFUtils
-                .renderString(context, params, "${scaleLbl}1:${format %,d scale.other}", font, null,
+                .renderString(context, params, "${scaleLbl}1:${format %,d scale.other}", 0, font, null,
                         false)
                 .getContent().contains("1:200"));
     }

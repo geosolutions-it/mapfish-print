@@ -35,22 +35,34 @@ import com.itextpdf.text.Phrase;
  * See http://trac.mapfish.org/trac/mapfish/wiki/PrintModuleServer#Textblock
  */
 public class TextBlock extends FontBlock {
+    private int maxLength = 0;
+
     private String text = "";
+
     private boolean asHTML = false;
 
-    public void render(PJsonObject params, PdfElement target, final RenderingContext context) throws DocumentException {
+    public void render(PJsonObject params, PdfElement target, final RenderingContext context)
+            throws DocumentException {
         Paragraph paragraph = new Paragraph();
 
         final Font pdfFont = getPdfFont();
         paragraph.setFont(pdfFont);
 
-        final Phrase phrase = PDFUtils.renderString(context, params, text, pdfFont, null,
-                asHTML);
+        final Phrase phrase = PDFUtils.renderString(context, params, text, maxLength, pdfFont, null, asHTML);
         paragraph.add(phrase);
 
-        if (getAlign() != null) paragraph.setAlignment(getAlign().getCode());
+        if (getAlign() != null)
+            paragraph.setAlignment(getAlign().getCode());
         paragraph.setSpacingAfter((float) spacingAfter);
         target.add(paragraph);
+    }
+
+    public int getMaxLength() {
+        return maxLength;
+    }
+
+    public void setMaxLength(int maxLength) {
+        this.maxLength = maxLength;
     }
 
     public void setText(String text) {
@@ -60,17 +72,18 @@ public class TextBlock extends FontBlock {
     public String getText() {
         return text;
     }
-    
+
     public boolean isAsHTML() {
-		return asHTML;
-	}
+        return asHTML;
+    }
 
-	public void setAsHTML(boolean asHTML) {
-		this.asHTML = asHTML;
-	}
+    public void setAsHTML(boolean asHTML) {
+        this.asHTML = asHTML;
+    }
 
-	public void validate() {
+    public void validate() {
         super.validate();
-        if (text == null) throw new InvalidValueException("text", "null");
+        if (text == null)
+            throw new InvalidValueException("text", "null");
     }
 }
