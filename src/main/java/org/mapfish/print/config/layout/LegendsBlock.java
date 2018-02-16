@@ -896,7 +896,7 @@ public class LegendsBlock extends Block {
                 float lineSpace, boolean defaultIconBeforeName, float spaceBefore)
                 throws DocumentException {
             final String nameString = node.getString("name"); // legend text
-            final String name = (nameString.length() > 60 ? nameString.substring(0, 64) + "..." : nameString);
+            final String name = (nameString.length() >= 70 ? nameString.substring(0, 64) + "..." : nameString);
             final String icon = node.optString("icon"); // legend image
             final String color = node.optString("color");
             final PJsonArray iconsArray = node.optJSONArray("icons");
