@@ -96,9 +96,6 @@ public class WMSMapReader extends TileableMapReader {
     private WMSMapReader(String layer, String style, RenderingContext context, PJsonObject params) {
         super(context, params);
         layers.add(layer);
-        if (!context.getConfig().isIgnoreCapabilities()) {
-            tileCacheLayerInfo = WMSServiceInfo.getInfo(baseUrl, context).getTileCacheLayer(layer);
-        }
         styles.add(style);
         format = params.getString("format");
         version = WMSVersion.find(params.optString("version", DEFAULT_VERSION.code));
@@ -108,9 +105,40 @@ public class WMSMapReader extends TileableMapReader {
             version = WMSVersion.find(customParams.optString("version", version.code));
         }
 
+        final String srs = params.optString("srs", context.getGlobalParams().optString("srs", "CRS:4326"));
         if (version == WMSVersion.VERSION1_3_0 &&
-            params.optString("srs", context.getGlobalParams().optString("srs", "CRS:4326")).equals("EPSG:4326")) {
+            srs.equals("EPSG:4326")) {
             strictEpsg4326 = true;
+        }
+        
+        if (!context.getConfig().isIgnoreCapabilities()) {
+            tileCacheLayerInfo = WMSServiceInfo.getInfo(baseUrl, context).getTileCacheLayer(layer);            
+        }
+        
+        if (tileCacheLayerInfo == null &&
+                (!params.optBool("singleTile") || (customParams != null && customParams.optBool("TILED"))) &&
+                (srs.contains("4326") || srs.contains("3857") || srs.contains("900913"))) {
+            
+            String resolutions = "";
+            int tileSize = 256;
+            float[] maxExtent = new float[4];
+            
+            int srsId = Integer.valueOf(srs.substring("EPSG:".length()));
+            switch(srsId) {
+            case 4326:
+                resolutions = "0.703125,0.3515625,0.17578125,0.087890625,0.0439453125,0.02197265625,0.010986328125,0.0054931640625,0.00274658203125,0.001373291015625,0.0006866455078125,0.0003433227539062,0.0001716613769531,0.0000858306884766,0.0000429153442383,0.0000214576721191,0.0000107288360596,0.0000053644180298,0.0000026822090149,0.0000013411045074,0.0000006705522537,0.0000003352761269";
+                maxExtent = new float[] {-180f, -90f, 180f, 90f};
+                break;
+            default:
+                resolutions = "156543.034132,78271.5170658,39135.7585329,19567.8792665,9783.93963323,4891.96981661,2445.98490831,1222.99245415,611.496227077,305.748113538,152.874056769,76.4370283846,38.2185141923,19.1092570961,9.55462854807,4.77731427404,2.38865713702,1.19432856851,0.597164284255,0.298582142127,0.149291071064,0.0746455355318";
+                maxExtent = new float[] {-20037508.34f, -20037508.34f, 20037508.34f, 20037508.34f};
+                break;
+            }
+            tileCacheLayerInfo = new WMTSLayerInfo(
+                    resolutions,
+                    tileSize, tileSize,
+                    maxExtent[0], maxExtent[1], maxExtent[2], maxExtent[3],
+                    format);
         }
     }
     

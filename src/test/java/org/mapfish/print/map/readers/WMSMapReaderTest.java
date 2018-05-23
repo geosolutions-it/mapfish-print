@@ -142,7 +142,7 @@ public class WMSMapReaderTest extends MapTestBasic {
         URI commonURI = createMergedUri(loadJson("mergeable/test5.json"));
         
         Map<String, List<String>> parameters = URIUtils.getParameters(commonURI.getRawQuery().toUpperCase());
-        assertEquals(""+commonURI, "ATTRIBUTE1=1;ATTRIBUTE2=2", parameters.get("CQL_FILTER").get(0));        
+        assertEquals(""+commonURI, "ATTRIBUTE1=1", parameters.get("CQL_FILTER").get(0));        
     }
     
     private URI createMergedUri(PJsonObject jsonParams)
