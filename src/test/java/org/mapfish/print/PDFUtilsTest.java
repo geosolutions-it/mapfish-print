@@ -19,21 +19,18 @@
 
 package org.mapfish.print;
 
-import java.io.BufferedReader;
-
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.file.Files;
-import java.util.HashMap;
-import java.util.Map;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -46,6 +43,7 @@ import org.mapfish.print.utils.PJsonObject;
 
 import com.itextpdf.text.DocumentException;
 import com.itextpdf.text.Font;
+import com.itextpdf.text.Image;
 
 public class PDFUtilsTest extends PdfTestCase {
     private static final String FIVE_HUNDRED_ROUTE = "/500";
