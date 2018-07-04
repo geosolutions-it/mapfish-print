@@ -28,26 +28,27 @@ public class OsmLayerInfo extends TileCacheLayerInfo {
     /**
      * Tolerance we accept when trying to determine the nearest resolution.
      */
-    protected static final double RESOLUTION_TOLERANCE = 1.9;
+    // protected static final double RESOLUTION_TOLERANCE = 1.05;
 
     public OsmLayerInfo(String resolutions, int width, int height, float minX, float minY, float maxX, float maxY, String format) {
-    	super(resolutions, width, height, minX, minY, maxX, maxY, format);
+        super(resolutions, width, height, minX, minY, maxX, maxY, format);
     }
 
     public OsmLayerInfo(PJsonArray resolutions, int width, int height, float minX, float minY, float maxX, float maxY, String extension) {
-    	super(resolutions, width, height, minX, minY, maxX, maxY, extension);
+        super(resolutions, width, height, minX, minY, maxX, maxY, extension);
     }
 
-    public ResolutionInfo getNearestResolution(float targetResolution) {
-        int pos = resolutions.length - 1;
-        float result = resolutions[pos];
-        for (int i = resolutions.length - 1; i >= 0; --i) {
-            float cur = resolutions[i];
-            if (cur <= targetResolution * RESOLUTION_TOLERANCE) {
-                result = cur;
-                pos = i;
-            }
-        }
-        return new ResolutionInfo(pos, result);
-    }
+    // @Override
+    // public ResolutionInfo getNearestResolution(double targetResolution) {
+    // int pos = resolutions.length - 1;
+    // double result = resolutions[pos];
+    // for (int i = resolutions.length - 1; i >= 0; --i) {
+    // double cur = resolutions[i];
+    // if (cur >= targetResolution * RESOLUTION_TOLERANCE || cur == targetResolution) {
+    // result = cur;
+    // pos = i;
+    // }
+    // }
+    // return new ResolutionInfo(pos, result);
+    // }
 }

@@ -24,10 +24,10 @@ import org.mapfish.print.PDFUtils;
 import org.mapfish.print.RenderingContext;
 import org.mapfish.print.utils.PJsonObject;
 
-import com.lowagie.text.DocumentException;
-import com.lowagie.text.Font;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.Phrase;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.Font;
+import com.itextpdf.text.Paragraph;
+import com.itextpdf.text.Phrase;
 
 /**
  * Bean to configure a !text block.
@@ -35,21 +35,34 @@ import com.lowagie.text.Phrase;
  * See http://trac.mapfish.org/trac/mapfish/wiki/PrintModuleServer#Textblock
  */
 public class TextBlock extends FontBlock {
+    private int maxLength = 0;
+
     private String text = "";
+
     private boolean asHTML = false;
 
-    public void render(PJsonObject params, PdfElement target, final RenderingContext context) throws DocumentException {
+    public void render(PJsonObject params, PdfElement target, final RenderingContext context)
+            throws DocumentException {
         Paragraph paragraph = new Paragraph();
 
         final Font pdfFont = getPdfFont();
         paragraph.setFont(pdfFont);
 
-        final Phrase text = PDFUtils.renderString(context, params, this.text, pdfFont, asHTML);
-        paragraph.add(text);
+        final Phrase phrase = PDFUtils.renderString(context, params, text, maxLength, pdfFont, null, asHTML);
+        paragraph.add(phrase);
 
-        if (getAlign() != null) paragraph.setAlignment(getAlign().getCode());
+        if (getAlign() != null)
+            paragraph.setAlignment(getAlign().getCode());
         paragraph.setSpacingAfter((float) spacingAfter);
         target.add(paragraph);
+    }
+
+    public int getMaxLength() {
+        return maxLength;
+    }
+
+    public void setMaxLength(int maxLength) {
+        this.maxLength = maxLength;
     }
 
     public void setText(String text) {
@@ -59,17 +72,18 @@ public class TextBlock extends FontBlock {
     public String getText() {
         return text;
     }
-    
+
     public boolean isAsHTML() {
-		return asHTML;
-	}
+        return asHTML;
+    }
 
-	public void setAsHTML(boolean asHTML) {
-		this.asHTML = asHTML;
-	}
+    public void setAsHTML(boolean asHTML) {
+        this.asHTML = asHTML;
+    }
 
-	public void validate() {
+    public void validate() {
         super.validate();
-        if (text == null) throw new InvalidValueException("text", "null");
+        if (text == null)
+            throw new InvalidValueException("text", "null");
     }
 }

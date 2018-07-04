@@ -19,24 +19,27 @@
 
 package org.mapfish.print.map;
 
-import java.awt.Color;
+import com.itextpdf.text.BaseColor;
 import java.util.ArrayList;
 import java.util.List;
 
 import org.mapfish.print.ChunkDrawer;
 import org.mapfish.print.InvalidJsonValueException;
-import org.mapfish.print.JsonMissingException;
 import org.mapfish.print.PDFCustomBlocks;
 import org.mapfish.print.RenderingContext;
 import org.mapfish.print.Transformer;
 import org.mapfish.print.map.readers.MapReader;
+import org.mapfish.print.utils.Maps;
 import org.mapfish.print.utils.PJsonArray;
 import org.mapfish.print.utils.PJsonObject;
 
-import com.lowagie.text.DocumentException;
-import com.lowagie.text.Rectangle;
-import com.lowagie.text.pdf.PdfContentByte;
-import com.lowagie.text.pdf.PdfLayer;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.Rectangle;
+import com.itextpdf.text.pdf.PdfContentByte;
+import com.itextpdf.text.pdf.PdfLayer;
+import java.io.IOException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Special drawer for map chunks.
@@ -46,11 +49,11 @@ public class MapChunkDrawer extends ChunkDrawer {
     private final double overviewMap;
     private final PJsonObject params;
     private final RenderingContext context;
-    private final Color backgroundColor;
+    private final BaseColor backgroundColor;
     private final String name;
 
 
-    public MapChunkDrawer(PDFCustomBlocks customBlocks, Transformer transformer, double overviewMap, PJsonObject params, RenderingContext context, Color backgroundColor, String name) {
+    public MapChunkDrawer(PDFCustomBlocks customBlocks, Transformer transformer, double overviewMap, PJsonObject params, RenderingContext context, BaseColor backgroundColor, String name) {
         super(customBlocks);
         this.transformer = transformer;
         this.overviewMap = overviewMap;
@@ -69,34 +72,9 @@ public class MapChunkDrawer extends ChunkDrawer {
     }
 
     public void renderImpl(Rectangle rectangle, PdfContentByte dc) {
-
-        final PJsonObject parent = context.getGlobalParams();
-        PJsonObject maps = null;
-        try{
-        	if(parent.has("maps")){
-        		maps = parent.getJSONObject("maps");
-        	}
-        }catch(JsonMissingException jme){
-        	// nothing to do. We execute the default render
-        	maps = null;
-        }
-        if(maps != null && maps.has(name)) {
-        	PJsonObject map = maps.getJSONObject(name);
-            renderMap(rectangle, dc, map);
-        }else{
-            renderMap(rectangle, dc, parent);
-        }
-    }
-
-    /**
-     * Render a map for the context.
-     * @param rectangle
-     * @param dc
-     * @param parent
-     */
-    private void renderMap(Rectangle rectangle, PdfContentByte dc, PJsonObject map) {
-        PJsonArray layers = map.getJSONArray("layers");
-        String srs = map.getString("srs");
+        final PJsonObject parent = Maps.getMapRoot(context.getGlobalParams(), name);
+        PJsonArray layers = parent.getJSONArray("layers");
+        String srs = parent.getString("srs");
 
         if (!context.getConfig().isDisableScaleLocking() && !context.getConfig().isScalePresent(transformer.getScale())) {
             throw new InvalidJsonValueException(params, "scale", transformer.getScale());
@@ -105,11 +83,11 @@ public class MapChunkDrawer extends ChunkDrawer {
         Transformer mainTransformer = null;
         if (!Double.isNaN(overviewMap)) {
             //manage the overview map
-            mainTransformer = context.getLayout().getMainPage().getMap().createTransformer(context, params);
+            mainTransformer = context.getLayout().getMainPage().getMap(name).createTransformer(context, params);
             transformer.zoom(mainTransformer, (float) (1.0 / overviewMap));
             transformer.setRotation(0);   //overview always north up!
             context.setStyleFactor((float) (transformer.getPaperW() / mainTransformer.getPaperW() / overviewMap));
-            layers = map.optJSONArray("overviewLayers", layers);
+            layers = parent.optJSONArray("overviewLayers", layers);
         }
 
         transformer.setMapPos(rectangle.getLeft(), rectangle.getBottom());
@@ -132,10 +110,10 @@ public class MapChunkDrawer extends ChunkDrawer {
                 float maxScale = layer.optFloat("maxScaleDenominator", -1f);
                 boolean bPrint = true;
                 if (minScale > -1f) {
-                    bPrint = (minScale - transformer.getScale() > 0 ? false : true);
+                    bPrint = (minScale - transformer.getScale() <= 0);
                 }
                 if (maxScale > -1f) {
-                    bPrint = (maxScale - transformer.getScale() < 0 ? false : true);
+                    bPrint = (maxScale - transformer.getScale() >= 0);
 
                 }
                 if (bPrint) {
@@ -197,7 +175,12 @@ public class MapChunkDrawer extends ChunkDrawer {
                 //mark the starting of a new PDF layer
                 parallelMapTileLoader.addTileToLoad(new MapTileTask.RenderOnly() {
                     public void renderOnPdf(PdfContentByte dc) throws DocumentException {
-                        PdfLayer pdfLayer = new PdfLayer(reader.toString(), context.getWriter());
+                        PdfLayer pdfLayer = null;
+                        try {
+                            pdfLayer = new PdfLayer(reader.toString(), context.getWriter());
+                        } catch (IOException ex) {
+                            Logger.getLogger(MapChunkDrawer.class.getName()).log(Level.SEVERE, null, ex);
+                        }
                         mapLayer.addChild(pdfLayer);
                         dc.beginLayer(pdfLayer);
                     }
@@ -213,6 +196,8 @@ public class MapChunkDrawer extends ChunkDrawer {
                     }
                 });
             }
+        } catch (IOException ex) {
+            Logger.getLogger(MapChunkDrawer.class.getName()).log(Level.SEVERE, null, ex);
         } finally {
             //wait for all the tiles to be loaded
             parallelMapTileLoader.waitForCompletion();
@@ -242,20 +227,21 @@ public class MapChunkDrawer extends ChunkDrawer {
             dc.transform(transformer.getGeoTransform(true));
             transformer.setRotation(0);
 
-            dc.setLineWidth(1 * transformer.getGeoW() / transformer.getPaperW());
-            dc.setColorStroke(new Color(255, 0, 0));
-            dc.rectangle(mainTransformer.getMinGeoX(), mainTransformer.getMinGeoY(), mainTransformer.getGeoW(), mainTransformer.getGeoH());
+            dc.setLineWidth((float)(1 * transformer.getGeoW() / transformer.getPaperW()));
+            dc.setColorStroke(new BaseColor(255, 0, 0));
+            dc.rectangle((float) mainTransformer.getMinGeoX(), (float) mainTransformer.getMinGeoY(),
+                    (float) mainTransformer.getGeoW(), (float)mainTransformer.getGeoH());
             dc.stroke();
 
             if (mainTransformer.getRotation() != 0.0) {
                 //draw a little arrow
-                dc.setLineWidth(0.5F * transformer.getGeoW() / transformer.getPaperW());
-                dc.moveTo((3 * mainTransformer.getMinGeoX() + mainTransformer.getMaxGeoX()) / 4,
-                        mainTransformer.getMinGeoY());
-                dc.lineTo((mainTransformer.getMinGeoX() + mainTransformer.getMaxGeoX()) / 2,
-                        (mainTransformer.getMinGeoY() * 2 + mainTransformer.getMaxGeoY()) / 3);
-                dc.lineTo((mainTransformer.getMinGeoX() + 3 * mainTransformer.getMaxGeoX()) / 4,
-                        mainTransformer.getMinGeoY());
+                dc.setLineWidth((float)(0.5F * transformer.getGeoW() / transformer.getPaperW()));
+                dc.moveTo((float) (3 * mainTransformer.getMinGeoX() + mainTransformer.getMaxGeoX()) / 4,
+                        (float) mainTransformer.getMinGeoY());
+                dc.lineTo((float) (mainTransformer.getMinGeoX() + mainTransformer.getMaxGeoX()) / 2,
+                        (float) (mainTransformer.getMinGeoY() * 2 + mainTransformer.getMaxGeoY()) / 3);
+                dc.lineTo((float) (mainTransformer.getMinGeoX() + 3 * mainTransformer.getMaxGeoX()) / 4,
+                        (float) mainTransformer.getMinGeoY());
                 dc.stroke();
             }
         } finally {

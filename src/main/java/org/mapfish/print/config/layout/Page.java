@@ -26,33 +26,42 @@ import org.mapfish.print.PDFUtils;
 import org.mapfish.print.RenderingContext;
 import org.mapfish.print.utils.PJsonObject;
 
-import com.lowagie.text.Document;
-import com.lowagie.text.DocumentException;
-import com.lowagie.text.Element;
-import com.lowagie.text.PageSize;
-import com.lowagie.text.Rectangle;
-
+import com.itextpdf.text.Document;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.Element;
+import com.itextpdf.text.PageSize;
+import com.itextpdf.text.Rectangle;
 
 /**
  * Holds the config of a page and knows how to print it.
  */
 public class Page {
-	
-	public static enum Position {
-		NONE, MAIN_PAGE, TITLE_PAGE, LAST_PAGE
-				
-	}
-	
+
+    public static enum Position {
+        NONE, MAIN_PAGE, TITLE_PAGE, LAST_PAGE
+
+    }
+
     protected List<Block> items;
+
     private String pageSize = "A4";
+
     private HeaderFooter header = null;
+
     private HeaderFooter footer = null;
+
     private String marginLeft = "40";
+
     private String marginRight = "40";
+
     private String marginTop = "20";
+
     private String marginBottom = "20";
+
     private String backgroundPdf = null;
+
     private boolean landscape = false;
+
     private String condition = null;
 
     public void render(PJsonObject params, RenderingContext context) throws DocumentException {
@@ -64,7 +73,8 @@ public class Page {
                     getMarginTop(context, params) + (header != null ? header.getHeight() : 0),
                     getMarginBottom(context, params) + (footer != null ? footer.getHeight() : 0));
 
-            context.getCustomBlocks().setBackgroundPdf(PDFUtils.evalString(context, params, backgroundPdf));
+            context.getCustomBlocks()
+                    .setBackgroundPdf(PDFUtils.evalString(context, params, backgroundPdf, null));
             if (doc.isOpen()) {
                 doc.newPage();
             } else {
@@ -89,10 +99,10 @@ public class Page {
     }
 
     protected Position getCurrentPosition() {
-		return Position.NONE;
-	}
+        return Position.NONE;
+    }
 
-	public Rectangle getPageSizeRect(RenderingContext context, PJsonObject params) {
+    public Rectangle getPageSizeRect(RenderingContext context, PJsonObject params) {
         final Rectangle result = PageSize.getRectangle(getPageSize(context, params));
         if (landscape) {
             return result.rotate();
@@ -121,7 +131,7 @@ public class Page {
     }
 
     public String getPageSize(RenderingContext context, PJsonObject params) {
-        return PDFUtils.evalString(context, params, pageSize);
+        return PDFUtils.evalString(context, params, pageSize, null);
     }
 
     public void setPageSize(String pageSize) {
@@ -142,19 +152,19 @@ public class Page {
     }
 
     public int getMarginLeft(RenderingContext context, PJsonObject params) {
-        return Integer.parseInt(PDFUtils.evalString(context, params, marginLeft));
+        return Integer.parseInt(PDFUtils.evalString(context, params, marginLeft, null));
     }
 
     public int getMarginRight(RenderingContext context, PJsonObject params) {
-        return Integer.parseInt(PDFUtils.evalString(context, params, marginRight));
+        return Integer.parseInt(PDFUtils.evalString(context, params, marginRight, null));
     }
 
     public int getMarginTop(RenderingContext context, PJsonObject params) {
-        return Integer.parseInt(PDFUtils.evalString(context, params, marginTop));
+        return Integer.parseInt(PDFUtils.evalString(context, params, marginTop, null));
     }
 
     public int getMarginBottom(RenderingContext context, PJsonObject params) {
-        return Integer.parseInt(PDFUtils.evalString(context, params, marginBottom));
+        return Integer.parseInt(PDFUtils.evalString(context, params, marginBottom, null));
     }
 
     public void setMarginLeft(String marginLeft) {
@@ -187,31 +197,34 @@ public class Page {
      * @throws InvalidValueException When there is a problem
      */
     public void validate() {
-        if (items == null) throw new InvalidValueException("items", "null");
-        if (items.size() < 1) throw new InvalidValueException("items", "[]");
+        if (items == null)
+            throw new InvalidValueException("items", "null");
+        if (items.size() < 1)
+            throw new InvalidValueException("items", "[]");
         for (int i = 0; i < items.size(); i++) {
             items.get(i).validate();
         }
 
-        if (header != null) header.validate();
-        if (footer != null) footer.validate();
+        if (header != null)
+            header.validate();
+        if (footer != null)
+            footer.validate();
     }
-    
+
     /**
-     * Apply this page format properties (size, margins, etc.) to
-     * another page.
+     * Apply this page format properties (size, margins, etc.) to another page.
      * 
      * @param other
      */
     public void applyPageFormat(Page other) {
-    	other.pageSize = pageSize;
-    	other.landscape = landscape;
-    	other.marginBottom = marginBottom;
-    	other.marginTop = marginTop;
-    	other.marginLeft = marginLeft;
-    	other.marginRight = marginRight;
-    	other.backgroundPdf = backgroundPdf;
-    	other.header = header;
-    	other.footer = footer;
+        other.pageSize = pageSize;
+        other.landscape = landscape;
+        other.marginBottom = marginBottom;
+        other.marginTop = marginTop;
+        other.marginLeft = marginLeft;
+        other.marginRight = marginRight;
+        other.backgroundPdf = backgroundPdf;
+        other.header = header;
+        other.footer = footer;
     }
 }

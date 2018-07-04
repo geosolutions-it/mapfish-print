@@ -26,10 +26,10 @@ import org.mapfish.print.PDFUtils;
 import org.mapfish.print.RenderingContext;
 import org.mapfish.print.utils.PJsonObject;
 
-import com.lowagie.text.DocumentException;
-import com.lowagie.text.Rectangle;
-import com.lowagie.text.pdf.PdfContentByte;
-import com.lowagie.text.pdf.PdfPTable;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.Rectangle;
+import com.itextpdf.text.pdf.PdfContentByte;
+import com.itextpdf.text.pdf.PdfPTable;
 
 /**
  * Config and logic to render a header or a footer.
@@ -65,7 +65,7 @@ public class HeaderFooter {
     public void validate() {
         if (height <= 0) throw new InvalidValueException("height", height);
         for (int i = 0; i < items.size(); i++) {
-            items.get(i).validate();            
+            items.get(i).validate();
         }
     }
 }

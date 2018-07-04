@@ -30,16 +30,16 @@ import org.mapfish.print.Transformer;
 import org.mapfish.print.map.MapTileTask;
 import org.mapfish.print.map.ParallelMapTileLoader;
 
-import com.lowagie.text.DocumentException;
-import com.lowagie.text.pdf.PdfContentByte;
-import com.lowagie.text.pdf.PdfGState;
-import com.lowagie.text.pdf.PdfImportedPage;
-import com.lowagie.text.pdf.PdfReader;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.pdf.PdfContentByte;
+import com.itextpdf.text.pdf.PdfGState;
+import com.itextpdf.text.pdf.PdfImportedPage;
+import com.itextpdf.text.pdf.PdfReader;
 
 public class PDFTileRenderer extends TileRenderer {
     public static final Logger LOGGER = Logger.getLogger(PDFTileRenderer.class);
 
-    public void render(final Transformer transformer, List<URI> uris, ParallelMapTileLoader parallelMapTileLoader, final RenderingContext context, final float opacity, int nbTilesHorizontal, float offsetX, float offsetY, long bitmapTileW, long bitmapTileH) throws IOException {
+    public void render(final Transformer transformer, List<URI> uris, ParallelMapTileLoader parallelMapTileLoader, final RenderingContext context, final float opacity, int nbTilesHorizontal, double offsetX, double offsetY, long bitmapTileW, long bitmapTileH) throws IOException {
         if (uris.size() != 1) {
             //tiling not supported in PDF
             throw new InvalidValueException("format", "application/x-pdf");

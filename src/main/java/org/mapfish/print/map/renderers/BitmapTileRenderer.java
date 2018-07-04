@@ -19,8 +19,8 @@
 
 package org.mapfish.print.map.renderers;
 
-import java.awt.geom.AffineTransform;
-import java.awt.geom.Point2D;
+import com.itextpdf.awt.geom.AffineTransform;
+import com.itextpdf.awt.geom.Point2D;
 import java.io.IOException;
 import java.net.URI;
 import java.util.List;
@@ -33,10 +33,10 @@ import org.mapfish.print.Transformer;
 import org.mapfish.print.map.MapTileTask;
 import org.mapfish.print.map.ParallelMapTileLoader;
 
-import com.lowagie.text.DocumentException;
-import com.lowagie.text.Image;
-import com.lowagie.text.pdf.PdfContentByte;
-import com.lowagie.text.pdf.PdfGState;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.Image;
+import com.itextpdf.text.pdf.PdfContentByte;
+import com.itextpdf.text.pdf.PdfGState;
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.GeometryFactory;
 import com.vividsolutions.jts.geom.Polygon;
@@ -44,7 +44,7 @@ import com.vividsolutions.jts.geom.Polygon;
 public class BitmapTileRenderer extends TileRenderer {
     private static final Log LOGGER = LogFactory.getLog(BitmapTileRenderer.class);
 
-    public void render(Transformer transformer, List<URI> uris, ParallelMapTileLoader parallelMapTileLoader, final RenderingContext context, final float opacity, int nbTilesHorizontal, float offsetX, float offsetY, final long bitmapTileW, final long bitmapTileH) throws IOException {
+    public void render(Transformer transformer, List<URI> uris, ParallelMapTileLoader parallelMapTileLoader, final RenderingContext context, final float opacity, int nbTilesHorizontal, double offsetX, double offsetY, final long bitmapTileW, final long bitmapTileH) throws IOException {
         final AffineTransform bitmapTransformer = transformer.getBitmapTransform();
         final double rotation = transformer.getRotation();
 
@@ -56,8 +56,8 @@ public class BitmapTileRenderer extends TileRenderer {
 
             final int line = i / nbTilesHorizontal;
             final int col = i % nbTilesHorizontal;
-            final float posX = 0 - offsetX + col * bitmapTileW;
-            final float posY = 0 - offsetY + line * bitmapTileH;
+            final double posX = 0 - offsetX + col * bitmapTileW;
+            final double posY = 0 - offsetY + line * bitmapTileH;
 
             if (rotation != 0.0 && !isTileVisible(posX, posY, bitmapTileW, bitmapTileH, bitmapTransformer, transformer)) {
                 if (LOGGER.isDebugEnabled()) {
@@ -71,7 +71,7 @@ public class BitmapTileRenderer extends TileRenderer {
 
                 protected void readTile() throws IOException, DocumentException {
                     map = PDFUtils.getImage(context, uri, bitmapTileW, bitmapTileH);
-                    map.setAbsolutePosition(posX, posY);
+                    map.setAbsolutePosition((float) posX, (float) posY);
                 }
 
                 protected void renderOnPdf(PdfContentByte dc) throws DocumentException {
@@ -88,7 +88,7 @@ public class BitmapTileRenderer extends TileRenderer {
         }
     }
 
-    private boolean isTileVisible(float x, float y, long w, long h, AffineTransform bitmapTransformer, Transformer transformer) {
+    private boolean isTileVisible(double x, double y, long w, long h, AffineTransform bitmapTransformer, Transformer transformer) {
         GeometryFactory gf = new GeometryFactory();
         Polygon page = gf.createPolygon(
                 gf.createLinearRing(new Coordinate[]{
@@ -103,10 +103,10 @@ public class BitmapTileRenderer extends TileRenderer {
         Point2D.Float lr = new Point2D.Float();
         Point2D.Float ur = new Point2D.Float();
         Point2D.Float ul = new Point2D.Float();
-        bitmapTransformer.transform(new Point2D.Float(x, y), ll);
-        bitmapTransformer.transform(new Point2D.Float(x + w, y), lr);
-        bitmapTransformer.transform(new Point2D.Float(x + w, y + h), ur);
-        bitmapTransformer.transform(new Point2D.Float(x, y + h), ul);
+        bitmapTransformer.transform(new Point2D.Float((float) x, (float) y), ll);
+        bitmapTransformer.transform(new Point2D.Float((float) x + w, (float) y), lr);
+        bitmapTransformer.transform(new Point2D.Float((float) x + w, (float) y + h), ur);
+        bitmapTransformer.transform(new Point2D.Float((float) x, (float) y + h), ul);
         Polygon tile = gf.createPolygon(
                 gf.createLinearRing(new Coordinate[]{
                         new Coordinate(ll.getX(), ll.getY()),

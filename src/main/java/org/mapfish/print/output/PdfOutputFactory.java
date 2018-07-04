@@ -18,7 +18,6 @@
  */
 
 package org.mapfish.print.output;
-
 import java.util.Collections;
 import java.util.List;
 
@@ -26,11 +25,11 @@ import org.apache.log4j.Logger;
 import org.mapfish.print.RenderingContext;
 import org.mapfish.print.TimeLogger;
 
-import com.lowagie.text.DocumentException;
+import com.itextpdf.text.DocumentException;
 
 /**
  * OutputFormat and factory that Outputs PDF objects
- * 
+ *
  * User: jeichar
  * Date: Oct 18, 2010
  * Time: 2:00:30 PM

@@ -19,8 +19,6 @@
 
 package org.mapfish.print.config.layout;
 
-import java.awt.Color;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -30,7 +28,8 @@ import org.mapfish.print.RenderingContext;
 import org.mapfish.print.config.ColorWrapper;
 import org.mapfish.print.utils.PJsonObject;
 
-import com.lowagie.text.DocumentException;
+import com.itextpdf.text.BaseColor;
+import com.itextpdf.text.DocumentException;
 
 /**
  * Base class for blocks that can be found in "items" arrays.
@@ -40,8 +39,9 @@ public abstract class Block {
     private VerticalAlign vertAlign = null;
     private String backgroundColor = null;
     private String condition = null;
-    protected double spacingAfter = 0.0;    
-    private boolean renderOnExtraPage = false;
+    protected double spacingAfter = 0.0;
+
+    private boolean renderOnExtraPage;
 
     public Block() {
 
@@ -50,14 +50,12 @@ public abstract class Block {
     /**
      * Called when the block is rendered.
      */
-	public abstract void render(PJsonObject params, PdfElement target,
-			RenderingContext context)
-			throws DocumentException;
+    public abstract void render(PJsonObject params, PdfElement target, RenderingContext context) throws DocumentException;
 
-    public MapBlock getMap() {
+    public MapBlock getMap(String name) {
         return null;
     }
-    
+
     /**
      * Called just after the config has been loaded to check it is valid.
      *
@@ -71,7 +69,7 @@ public abstract class Block {
     }
 
     public interface PdfElement {
-        void add(com.lowagie.text.Element element) throws DocumentException;
+        void add(com.itextpdf.text.Element element) throws DocumentException;
     }
 
     public void setAlign(HorizontalAlign align) {
@@ -82,8 +80,8 @@ public abstract class Block {
         this.vertAlign = vertAlign;
     }
 
-    public Color getBackgroundColorVal(RenderingContext context, PJsonObject params) {
-        return ColorWrapper.convertColor(PDFUtils.evalString(context, params, backgroundColor));
+    public BaseColor getBackgroundColorVal(RenderingContext context, PJsonObject params) {
+        return ColorWrapper.convertColor(PDFUtils.evalString(context, params, backgroundColor, null));
     }
 
     public void setBackgroundColor(String backgroundColor) {

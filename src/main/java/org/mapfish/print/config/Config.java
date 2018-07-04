@@ -19,7 +19,6 @@
 
 package org.mapfish.print.config;
 
-//import org.apache.commons.httpclient.HostConfiguration;
 import java.io.Closeable;
 import java.net.InetSocketAddress;
 import java.net.MalformedURLException;
@@ -34,11 +33,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.TreeSet;
+//import org.mapfish.print.output.OutputFormat;
 
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpMethodBase;
 import org.apache.commons.httpclient.MultiThreadedHttpConnectionManager;
-import org.apache.commons.httpclient.params.HttpConnectionManagerParams;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.json.JSONException;
@@ -46,14 +45,17 @@ import org.json.JSONWriter;
 import org.mapfish.print.Constants;
 import org.mapfish.print.InvalidValueException;
 import org.mapfish.print.PDFUtils;
+import org.mapfish.print.ThreadResources;
 import org.mapfish.print.config.layout.Layout;
 import org.mapfish.print.config.layout.Layouts;
 import org.mapfish.print.map.MapTileTask;
 import org.mapfish.print.map.readers.MapReaderFactoryFinder;
-import org.mapfish.print.map.readers.WMSServerInfo;
+import org.mapfish.print.map.readers.WMSServiceInfo;
 import org.mapfish.print.output.OutputFactory;
 import org.pvalsecc.concurrent.OrderedResultsExecutor;
-//import org.mapfish.print.output.OutputFormat;
+
+//import org.apache.commons.httpclient.HostConfiguration;
+import com.codahale.metrics.MetricRegistry;
 
 /**
  * Bean mapping the root of the configuration file.
@@ -63,20 +65,30 @@ public class Config implements Closeable {
 
     private Layouts layouts;
     private TreeSet<Integer> dpis;
-    private TreeSet<Integer> scales;
+    private TreeSet<Double> scales;
     private String maxSvgWidth = "";
     private String maxSvgHeight = "";
     private double maxSvgW = Double.MAX_VALUE;
     private double maxSvgH = Double.MAX_VALUE;
+    private Float tmsDefaultOriginX = null;
+    private Float tmsDefaultOriginY = null;
     private boolean reloadConfig = false;
-    
+
+    private boolean ignoreCapabilities = false;
+    private int maxPrintTimeBeforeWarningInSeconds = 30;
+    private int printTimeoutMinutes = 5;
+    private boolean disableLayersMerging = false;
+
+    private ThreadResources threadResources;
+
     private boolean integerSvg = true;
-    
+
     private List<String> overlayLayers = null;
-    
+
     private TreeSet<String> fonts = null;
     private List<HostMatcher> hosts = new ArrayList<HostMatcher>();
     private HashMap localHostForward;
+    private TreeSet<String> headers;
     private TreeSet<Key> keys;
 
     private int globalParallelFetches = 5;
@@ -98,27 +110,23 @@ public class Config implements Closeable {
      */
     private static final double BEST_SCALE_TOLERANCE = 0.98;
 
-    /**
-     * The bunch of threads that will be used to do the // fetching of the map
-     * chunks
-     */
-    private OrderedResultsExecutor<MapTileTask> mapRenderingExecutor = null;
-    private MultiThreadedHttpConnectionManager connectionManager;
     private TreeSet<String> formats; // private int svgMaxWidth = -1; private int svgMaxHeight = -1;
 
-	private OutputFactory outputFactory;
+    private OutputFactory outputFactory;
 
-	private MapReaderFactoryFinder mapReaderFactoryFinder;
+    private MapReaderFactoryFinder mapReaderFactoryFinder;
     private String brokenUrlPlaceholder = Constants.ImagePlaceHolderConstants.THROW;
+    private String proxyBaseUrl;
+    private MetricRegistry metricRegistry;
 
     public Config() {
         hosts.add(new LocalHostMatcher());
     }
 
     public void setOutputFactory(OutputFactory outputFactory) {
-		this.outputFactory = outputFactory;
-	}
-    
+        this.outputFactory = outputFactory;
+    }
+
     public Layout getLayout(String name) {
         return layouts.get(name);
     }
@@ -130,37 +138,38 @@ public class Config implements Closeable {
     public void setDpis(TreeSet<Integer> dpis) {
         this.dpis = dpis;
     }
-    
+
     public void setMaxSvgWidth(String maxSvgWidth) {
-    	this.maxSvgWidth = maxSvgWidth;
-    	this.maxSvgW = Double.parseDouble(maxSvgWidth);
+        this.maxSvgWidth = maxSvgWidth;
+        this.maxSvgW = Double.parseDouble(maxSvgWidth);
     }
     public String getMaxSvgWidth() {
-    	return this.maxSvgWidth;
+        return this.maxSvgWidth;
     }
     public void setMaxSvgHeight(String maxSvgHeight) {
-    	this.maxSvgHeight = maxSvgHeight;
-    	this.maxSvgH = Double.parseDouble(maxSvgHeight);
+        this.maxSvgHeight = maxSvgHeight;
+        this.maxSvgH = Double.parseDouble(maxSvgHeight);
     }
     public String getMaxSvgHeight() {
-    	return this.maxSvgHeight;
+        return this.maxSvgHeight;
     }
-    
+
     public double getMaxSvgW() {
-    	return this.maxSvgW;
+        return this.maxSvgW;
     }
     public double getMaxSvgH() {
-    	return this.maxSvgH;
+        return this.maxSvgH;
     }
-    
+
     public TreeSet<Integer> getDpis() {
         return dpis;
     }
 
+
     public void printClientConfig(JSONWriter json) throws JSONException {
         json.key("scales");
         json.array();
-        for (Integer scale : scales) {
+        for (Double scale : scales) {
             json.object();
             json.key("name").value("1:" + NumberFormat.getIntegerInstance().format(scale));
             json.key("value").value(scale.toString());
@@ -180,10 +189,12 @@ public class Config implements Closeable {
 
         json.key("outputFormats");
         json.array();
-        for (String format : outputFactory.getSupportedFormats(this)) {
-            json.object();
-            json.key("name").value(format);
-            json.endObject();
+        if (outputFactory != null) {
+            for (String format : outputFactory.getSupportedFormats(this)) {
+                json.object();
+                json.key("name").value(format);
+                json.endObject();
+            }
         }
         json.endArray();
 
@@ -202,12 +213,21 @@ public class Config implements Closeable {
         json.endArray();
     }
 
-    public void setScales(TreeSet<Integer> scales) {
-        this.scales = scales;
+    public void setScales(TreeSet<Number> scales) {
+        // it is common for the config.yaml file to have integers only in the file
+        this.scales = new TreeSet<Double>();
+        for (Number scale : scales) {
+            this.scales.add(scale.doubleValue());
+        }
     }
 
-    public boolean isScalePresent(int scale) {
-        return scales.contains(scale);
+    public boolean isScalePresent(double targetScale) {
+        for (double scale : scales) {
+            if (Math.abs(((long) scale) - targetScale) < 0.001) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public void setHosts(List<HostMatcher> hosts) {
@@ -254,6 +274,10 @@ public class Config implements Closeable {
      * @throws InvalidValueException When there is a problem
      */
     public void validate() {
+        if (this.threadResources == null) {
+            throw new IllegalStateException("Config was not configured with a threadResources object.  Check spring configuration file " +
+                                            "and make sure there is a ThreadResources bean");
+        }
         if (layouts == null) throw new InvalidValueException("layouts", "null");
         layouts.validate();
 
@@ -262,6 +286,7 @@ public class Config implements Closeable {
 
         if (scales == null) throw new InvalidValueException("scales", "null");
         if (scales.size() < 1) throw new InvalidValueException("scales", "[]");
+        if (!(scales.iterator().next() instanceof Double)) throw new Error("scales should be converted to Doubles");
 
         if (hosts == null) throw new InvalidValueException("hosts", "null");
         if (hosts.size() < 1) throw new InvalidValueException("hosts", "[]");
@@ -289,15 +314,14 @@ public class Config implements Closeable {
     /**
      * @return The first scale that is bigger or equal than the target.
      */
-    public int getBestScale(double target) {
+    public double getBestScale(double target) {
         if (this.disableScaleLocking) {
-            Double forcedScale = target;
-            return forcedScale.intValue();
+            return target;
         }
         else {
-            target *= BEST_SCALE_TOLERANCE;
-            for (Integer scale : scales) {
-                if (scale >= target) {
+            double finalTarget = target * BEST_SCALE_TOLERANCE;
+            for (double scale : scales) {
+                if (scale >= finalTarget) {
                     return scale;
                 }
             }
@@ -306,32 +330,17 @@ public class Config implements Closeable {
 
     }
 
-    public synchronized OrderedResultsExecutor<MapTileTask> getMapRenderingExecutor() {
-        if (mapRenderingExecutor == null && globalParallelFetches > 1) {
-            mapRenderingExecutor = new OrderedResultsExecutor<MapTileTask>(globalParallelFetches, "tilesReader");
-            mapRenderingExecutor.start();
-        }
-        return mapRenderingExecutor;
+    public OrderedResultsExecutor<MapTileTask> getMapRenderingExecutor() {
+        return this.threadResources.getMapRenderingExecutor();
     }
 
     /**
      * Stop all the threads and stuff used for this config.
      */
     public synchronized void close() {
-        try {
-            WMSServerInfo.clearCache();
-        } finally {
-            try {
-                if (mapRenderingExecutor != null) {
-                    mapRenderingExecutor.stop();
-                }
-            } finally {
-                if (connectionManager != null) {
-                    connectionManager.shutdown();
-                }
-            }
-        }
+        WMSServiceInfo.clearCache();
     }
+
 
     public void setGlobalParallelFetches(int globalParallelFetches) {
         this.globalParallelFetches = globalParallelFetches;
@@ -369,22 +378,14 @@ public class Config implements Closeable {
 
         for(SecurityStrategy sec : security)
         if(sec.matches(uri)) {
-        	sec.configure(uri, httpClient);
-        	break;
+            sec.configure(uri, httpClient);
+            break;
         }
         return httpClient;
     }
 
-    private synchronized MultiThreadedHttpConnectionManager getConnectionManager() {
-        if(connectionManager == null) {
-            connectionManager = new MultiThreadedHttpConnectionManager();
-            final HttpConnectionManagerParams params = connectionManager.getParams();
-            params.setDefaultMaxConnectionsPerHost(perHostParallelFetches);
-            params.setMaxTotalConnections(globalParallelFetches);
-            params.setSoTimeout(socketTimeout);
-            params.setConnectionTimeout(connectionTimeout);
-        }
-        return connectionManager;
+    private MultiThreadedHttpConnectionManager getConnectionManager() {
+        return this.threadResources.getConnectionManager();
     }
 
     public void setTilecacheMerging(boolean tilecacheMerging) {
@@ -409,6 +410,14 @@ public class Config implements Closeable {
 
     public void setConnectionTimeout(int connectionTimeout) {
         this.connectionTimeout = connectionTimeout;
+    }
+    
+    public void setDisableLayersMerging(boolean disableLayersMerging) {
+       this.disableLayersMerging = disableLayersMerging;
+    }
+    
+    public boolean isDisableLayersMerging() {
+        return disableLayersMerging;
     }
 
     public String getOutputFilename(String layoutName) {
@@ -448,19 +457,19 @@ public class Config implements Closeable {
       return overlayLayers;
     }
 
-	/**
-	 * @return the integerSvg true if for example MapServer 5.6 or earlier is used where integers are put into the SVG
-	 */
-	public boolean getIntegerSvg() {
-		return integerSvg;
-	}
+    /**
+     * @return the integerSvg true if for example MapServer 5.6 or earlier is used where integers are put into the SVG
+     */
+    public boolean getIntegerSvg() {
+        return integerSvg;
+    }
 
-	/**
-	 * @param integerSvg the integerSvg to set
-	 */
-	public void setIntegerSvg(boolean integerSvg) {
-		this.integerSvg = integerSvg;
-	}
+    /**
+     * @param integerSvg the integerSvg to set
+     */
+    public void setIntegerSvg(boolean integerSvg) {
+        this.integerSvg = integerSvg;
+    }
 
     /**
      * @return the reloadConfig
@@ -480,14 +489,14 @@ public class Config implements Closeable {
         this.security = security;
     }
 
-	public void setMapReaderFactoryFinder(
-			MapReaderFactoryFinder mapReaderFactoryFinder) {
-		this.mapReaderFactoryFinder = mapReaderFactoryFinder;
-	}
-	
-	public MapReaderFactoryFinder getMapReaderFactoryFinder() {
-		return mapReaderFactoryFinder;
-	}
+    public void setMapReaderFactoryFinder(
+            MapReaderFactoryFinder mapReaderFactoryFinder) {
+        this.mapReaderFactoryFinder = mapReaderFactoryFinder;
+    }
+
+    public MapReaderFactoryFinder getMapReaderFactoryFinder() {
+        return mapReaderFactoryFinder;
+    }
 
     public void setLocalHostForward(HashMap localHostForward) {
         this.localHostForward = localHostForward;
@@ -514,6 +523,14 @@ public class Config implements Closeable {
         return false;
     }
 
+    public void setHeaders(TreeSet<String> headers) {
+        this.headers = headers;
+    }
+
+    public TreeSet<String> getHeaders() {
+        return this.headers;
+    }
+
     public void setBrokenUrlPlaceholder(String brokenUrlPlaceholder) {
         this.brokenUrlPlaceholder = brokenUrlPlaceholder;
     }
@@ -531,4 +548,86 @@ public class Config implements Closeable {
 	}
     
     
+    /**
+     * Get the url of the proxy that resides between the servlet and the internet.
+     * <p/>
+     * This method may return null if there is no proxy between the servlet and the internet.
+     *
+     * @return the url of the proxy that resides between the servlet and the internet.
+     */
+    public String getProxyBaseUrl() {
+        return proxyBaseUrl;
+    }
+
+    /**
+     * Set the url of the proxy that resides between the servlet and the internet.
+     * <p/>
+     * This is an optional parameter as there may not be a proxy.
+     *
+     * @param proxyBaseUrl the url of the proxy as seen from the internet.
+     */
+    public void setProxyBaseUrl(String proxyBaseUrl) {
+        this.proxyBaseUrl = proxyBaseUrl;
+    }
+
+    /**
+     * Specify the default x - origin used by TMS map reader.  If null then the value will be derived from maxExtent.
+     */
+    public Float getTmsDefaultOriginX() {
+        return tmsDefaultOriginX;
+    }
+    /**
+     * Specify the default x - origin used by TMS map reader.  If null then the value will be derived from maxExtent.
+     */
+    public void setTmsDefaultOriginX(Float tmsDefaultOriginX) {
+        this.tmsDefaultOriginX = tmsDefaultOriginX;
+    }
+    /**
+     * Specify the default y - origin used by TMS map reader.  If null then the value will be derived from maxExtent.
+     */
+    public Float getTmsDefaultOriginY() {
+        return tmsDefaultOriginY;
+    }
+    /**
+     * Specify the default y - origin used by TMS map reader.  If null then the value will be derived from maxExtent.
+     */
+    public void setTmsDefaultOriginY(Float tmsDefaultOriginY) {
+        this.tmsDefaultOriginY = tmsDefaultOriginY;
+    }
+
+    public void setThreadResources(ThreadResources threadResources) {
+        this.threadResources = threadResources;
+    }
+
+    public boolean isIgnoreCapabilities() {
+        return ignoreCapabilities;
+    }
+
+    public void setIgnoreCapabilities(boolean ignoreCapabilities) {
+        this.ignoreCapabilities = ignoreCapabilities;
+    }
+
+    public int getMaxPrintTimeBeforeWarningInSeconds() {
+        return maxPrintTimeBeforeWarningInSeconds;
+    }
+
+    public int getPrintTimeoutMinutes() {
+        return printTimeoutMinutes;
+    }
+
+    public void setPrintTimeoutMinutes(int printTimeoutMinutes) {
+        this.printTimeoutMinutes = printTimeoutMinutes;
+    }
+
+    public void setMaxPrintTimeBeforeWarningInSeconds(int maxPrintTimeBeforeWarningInSeconds) {
+        this.maxPrintTimeBeforeWarningInSeconds = maxPrintTimeBeforeWarningInSeconds;
+    }
+
+    public void setMetricRegistry(MetricRegistry metricRegistry) {
+        this.metricRegistry = metricRegistry;
+    }
+
+    public MetricRegistry getMetricRegistry() {
+        return metricRegistry;
+    }
 }

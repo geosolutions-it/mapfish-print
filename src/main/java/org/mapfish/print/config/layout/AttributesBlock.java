@@ -28,12 +28,8 @@ import org.mapfish.print.RenderingContext;
 import org.mapfish.print.utils.PJsonArray;
 import org.mapfish.print.utils.PJsonObject;
 
-import com.lowagie.text.DocumentException;
-import com.lowagie.text.Font;
-import com.lowagie.text.FontFactory;
-import com.lowagie.text.Paragraph;
-import com.lowagie.text.pdf.BaseFont;
-import com.lowagie.text.pdf.PdfPTable;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.pdf.PdfPTable;
 
 /**
  * Bean to configure an !attributes block
@@ -142,7 +138,7 @@ public class AttributesBlock extends Block {
 	
 	        //add the content
 	        for (int rowNum = 0; rowNum < data.size(); ++rowNum) {
-	            PJsonObject row = data.get(rowNum);
+                    PJsonObject row = data.get(rowNum);
 	            int realColNum = 0;
 	            for (int colNum = 0; colNum < firstLine.size(); ++colNum) {
 	                String name = firstLine.getString(colNum);
@@ -209,7 +205,7 @@ public class AttributesBlock extends Block {
 		this.groupsOnNewPage = groupsOnNewPage;
 	}
 
-	@Override
+    @Override
     public void validate() {
         super.validate();
         if (source == null) throw new InvalidValueException("source", "null");

@@ -19,143 +19,166 @@
 
 package org.mapfish.print;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintStream;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import org.apache.commons.httpclient.HttpClient;
-import org.apache.commons.httpclient.methods.GetMethod;
+import com.sun.net.httpserver.HttpExchange;
+import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.HttpServer;
 import org.apache.log4j.Logger;
+import org.pvalsecc.misc.FileUtilities;
+
+import java.io.*;
+import java.net.InetSocketAddress;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * A fake HTTP server to be used for tests.
  */
-public class FakeHttpd extends Thread {
+public class FakeHttpd {
+
+    public static class Route {
+        final String route;
+        final HttpAnswerer response;
+
+        public Route(String route, HttpAnswerer response) {
+            this.route = route;
+            this.response = response;
+        }
+
+        /**
+         * Return a route that returns a 200 response with text payload.
+         *
+         * @return a route that returns a 200 response with text payload
+         */
+        public static Route textResponse(String route, String response) {
+            return new Route(route, new HttpAnswerer(200, "OK", "text/plain", response));
+        }
+
+        /**
+         * Return a route that returns a 200 response with xml payload.
+         *
+         * @return a route that returns a 200 response with xml payload
+         */
+        public static Route xmlResponse(String route, byte[] response) {
+            return new Route(route, new HttpAnswerer(200, "OK", "application/xml", response));
+        }
+
+        /**
+         * Return a route that returns a 200 response with xml payload.
+         *
+         * @return a route that returns a 200 response with xml payload
+         */
+        public static Route xmlResponse(String route, String  response) {
+            try {
+                return xmlResponse(route, response.getBytes("UTF-8"));
+            } catch (UnsupportedEncodingException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        /**
+         * Create a route that results in an error.
+         *
+         * @param route the path/route
+         * @param code  the error code
+         * @param msg   the error message
+         * @return a route that results in an error.
+         */
+        public static Route errorResponse(String route, int code, String msg) {
+            return new Route(route, new HttpAnswerer(code, msg, "text/plain", (byte[]) null));
+        }
+    }
+
     public static final Logger LOGGER = Logger.getLogger(FakeHttpd.class);
-    private static final Pattern GET = Pattern.compile("^GET (.*) HTTP/\\d.\\d$");
+    private final static AtomicInteger portInc = new AtomicInteger(20732);
+    private final HttpServer server;
     private int port;
-    private final Map<String, HttpAnswerer> routings;
-    private static final HttpAnswerer NOT_FOUND = new HttpAnswerer(404, "Not found", "text/plain", "Not found");
-    private static final HttpAnswerer STOP = new HttpAnswerer(200, "STOPPING", "text/plain", "stopping", true);
-    private final AtomicBoolean starting = new AtomicBoolean(false);
 
-    public FakeHttpd(int port, Map<String, HttpAnswerer> routings) {
-        super("FakeHttpd(" + port + ")");
-        this.port = port;
-        routings.put("/stop", STOP);
-        this.routings = routings;
-    }
-
-    @Override
-    public void start() {
-        starting.set(true);
-        super.start();
-        synchronized (starting) {
-            while (starting.get()) {
-                try {
-                    starting.wait();
-                } catch (InterruptedException e) {
-                    //ignored
-                }
-            }
-        }
-    }
-
-    public void run() {
+    public FakeHttpd(Route... routes) {
+        this.port = portInc.incrementAndGet();
         try {
-            LOGGER.info("starting");
-            ServerSocket serverSocket = new ServerSocket(port);
-            LOGGER.info("started");
-            synchronized (starting) {
-                starting.set(false);
-                starting.notify();
-            }
-
-            while (true) {
-                Socket socket = serverSocket.accept();
-                BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                PrintStream output = new PrintStream(socket.getOutputStream());
-                final boolean stayAlive = handleHttp(input, output);
-                input.close();
-                output.close();
-                socket.close();
-                if (!stayAlive) {
-                    break;
-                }
-            }
-            serverSocket.close();
-            LOGGER.info("stopped");
+            this.server = HttpServer.create(new InetSocketAddress(port), 0);
+            addRoutes(routes);
         } catch (IOException e) {
-            e.printStackTrace();
+            throw new RuntimeException(e);
         }
     }
+
+    public void addRoutes(Route... routes) {
+        if (routes != null) {
+            for (Route route : routes) {
+                this.server.createContext(route.route, route.response);
+            }
+        }
+    }
+
+    public int getPort() {
+        return port;
+    }
+
+    public void start() {
+        server.start();
+    }
+
 
     public void shutdown() throws IOException, InterruptedException {
-        GetMethod method = new GetMethod("http://localhost:" + port + "/stop");
-        HttpClient client = new HttpClient();
-        client.executeMethod(method);
-        join();
+        server.stop(1);
     }
 
-    private boolean handleHttp(BufferedReader input, PrintStream output) throws IOException {
-        String url = null;
-        String curHeader;
-        while (!(curHeader = input.readLine()).equals("")) {
-            Matcher getMatcher = GET.matcher(curHeader);
-            if (getMatcher.matches()) {
-                url = getMatcher.group(1);
-            }
-        }
-        if (url == null) {
-            LOGGER.error("didn't receive a GET");
-            return false;
-        }
-
-        LOGGER.debug("received a GET request: " + url);
-        HttpAnswerer answer = routings.get(url);
-        if (answer == null) {
-            answer = NOT_FOUND;
-        }
-
-        return !answer.answer(output);
-    }
-
-    public static class HttpAnswerer {
+    public static class HttpAnswerer implements HttpHandler {
         private final int status;
         private final String statusTxt;
         private final String contentType;
-        private final String body;
-        private final boolean stop;
+        private final byte[] body;
+
+        public HttpAnswerer(int status, String statusTxt, String contentType, InputStream inputStream) {
+            this(status, statusTxt, contentType, streamToBytes(inputStream));
+        }
+
+        public HttpAnswerer(int status, String statusTxt, String contentType, byte[] bytes) {
+            this.status = status;
+            this.statusTxt = statusTxt;
+            this.contentType = contentType;
+            this.body = bytes;
+        }
+
+        private static byte[] streamToBytes(InputStream inputStream) {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            try {
+                FileUtilities.copyStream(inputStream, out);
+            } catch (IOException e) {
+                throw new Error(e);
+            }
+
+            return out.toByteArray();
+        }
 
         public HttpAnswerer(int status, String statusTxt, String contentType, String body) {
             this.status = status;
             this.statusTxt = statusTxt;
             this.contentType = contentType;
-            this.body = body;
-            this.stop = false;
+            try {
+                this.body = body.getBytes("UTF-8");
+            } catch (UnsupportedEncodingException e) {
+                throw new Error(e);
+            }
         }
 
-        private HttpAnswerer(int status, String statusTxt, String contentType, String body, boolean stop) {
-            this.status = status;
-            this.statusTxt = statusTxt;
-            this.contentType = contentType;
-            this.body = body;
-            this.stop = stop;
-        }
+        @Override
+        public void handle(HttpExchange httpExchange) throws IOException {
 
-        protected boolean answer(PrintStream output) {
-            output.println("HTTP/1.0 " + status + " " + statusTxt);
-            output.println("Content-Type: " + contentType);
-            output.println("");
-            output.println(body);
-            return stop;
+            LOGGER.debug("received a " + httpExchange.getRequestMethod() + " request: " + httpExchange.getRequestURI());
+
+            if (contentType != null) {
+                httpExchange.getResponseHeaders().add("Content-Type", contentType);
+            }
+            if (body == null) {
+                httpExchange.sendResponseHeaders(status, 0);
+                httpExchange.getResponseBody().close();
+            } else {
+                httpExchange.sendResponseHeaders(status, body.length);
+                final OutputStream stream = httpExchange.getResponseBody();
+                stream.write(body);
+                stream.close();
+            }
         }
     }
 }

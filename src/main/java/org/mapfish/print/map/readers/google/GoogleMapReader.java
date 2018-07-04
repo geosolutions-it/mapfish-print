@@ -41,14 +41,14 @@ import org.mapfish.print.utils.PJsonObject;
 import org.pvalsecc.misc.URIUtils;
 
 public class GoogleMapReader extends HTTPMapReader {
-	public static class Factory implements MapReaderFactory {
-		@Override
-		public List<? extends MapReader> create(String type, RenderingContext context,
-				PJsonObject params) {
-			return Collections.singletonList(new GoogleMapReader("t", context, params));
-		}
+    public static class Factory implements MapReaderFactory {
+        @Override
+        public List<? extends MapReader> create(String type, RenderingContext context,
+                PJsonObject params) {
+            return Collections.singletonList(new GoogleMapReader("t", context, params));
+        }
     }
-	
+
 
     private final String layer;
     private final GoogleConfig config;
@@ -64,14 +64,14 @@ public class GoogleMapReader extends HTTPMapReader {
     }
 
     protected void renderTiles(TileRenderer formatter, Transformer transformer, URI commonUri, ParallelMapTileLoader parallelMapTileLoader) throws IOException, URISyntaxException {
-        float maxGeoX = transformer.getRotatedMaxGeoX();
-        float minGeoX = transformer.getRotatedMinGeoX();
-        float maxGeoY = transformer.getRotatedMaxGeoY();
-        float minGeoY = transformer.getRotatedMinGeoY();
+        double maxGeoX = transformer.getRotatedMaxGeoX();
+        double minGeoX = transformer.getRotatedMinGeoX();
+        double maxGeoY = transformer.getRotatedMaxGeoY();
+        double minGeoY = transformer.getRotatedMinGeoY();
         long width = transformer.getRotatedBitmapW();
         long height = transformer.getRotatedBitmapH();
-        
-        float targetResolution = transformer.getGeoW() / width;
+
+        double targetResolution = transformer.getGeoW() / width;
         GoogleLayerInfo.ResolutionInfo resolution = layerInfo.getNearestResolution(targetResolution);
 
         Map<String, List<String>> tileParams = new HashMap<String, List<String>>();

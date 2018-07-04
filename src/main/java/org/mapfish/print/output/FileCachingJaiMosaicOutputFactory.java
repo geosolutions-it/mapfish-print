@@ -40,13 +40,13 @@ import org.mapfish.print.RenderingContext;
 import org.mapfish.print.TimeLogger;
 import org.mapfish.print.utils.PJsonObject;
 
-import com.lowagie.text.DocumentException;
+import com.itextpdf.text.DocumentException;
 import com.sun.media.jai.codec.FileSeekableStream;
 
 /**
  * Similar to {@link InMemoryJaiMosaicOutputFactory} in that it uses pdf box to parse pdf.  However it writes
- * each page to disk as an image before combining them using JAI mosaic.  
- * 
+ * each page to disk as an image before combining them using JAI mosaic.
+ *
  * @author jeichar
  */
 public class FileCachingJaiMosaicOutputFactory extends InMemoryJaiMosaicOutputFactory {

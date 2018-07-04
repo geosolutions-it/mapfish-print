@@ -23,8 +23,11 @@ import org.mapfish.print.RenderingContext;
 import org.pvalsecc.concurrent.BlockingSimpleTarget;
 import org.pvalsecc.concurrent.OrderedResultsExecutor;
 
-import com.lowagie.text.DocumentException;
-import com.lowagie.text.pdf.PdfContentByte;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.pdf.PdfContentByte;
 
 /**
  * An instance of this class is in charge of loading in parallel the tiles of a
@@ -82,7 +85,11 @@ public class ParallelMapTileLoader implements OrderedResultsExecutor.ResultColle
      */
     public void waitForCompletion() {
         target.setTarget(nbTiles);
-        target.waitForCompletion();
+        try {
+            target.waitForCompletion(TimeUnit.MINUTES.toMillis(context.getConfig().getPrintTimeoutMinutes()));
+        } catch (TimeoutException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**
@@ -90,20 +97,20 @@ public class ParallelMapTileLoader implements OrderedResultsExecutor.ResultColle
      * scheduled to be loaded. For one PDF file, not called in //.
      */
     public void handle(MapTileTask mapTileTaskResult) {
-        if (!mapTileTaskResult.handleException(context)) {
-            synchronized (context.getPdfLock()) {  //tiles may be currently loading in another thread
-                dc.saveState();
-                try {
-                    mapTileTaskResult.renderOnPdf(dc);
-                } catch (DocumentException e) {
-                    context.addError(e);
-                } finally {
-                    dc.restoreState();
-                    target.addDone(1);
+        try {
+            if (!mapTileTaskResult.handleException(context)) {
+                synchronized (context.getPdfLock()) {  //tiles may be currently loading in another thread
+                    dc.saveState();
+                    try {
+                        mapTileTaskResult.renderOnPdf(dc);
+                    } catch (DocumentException e) {
+                        context.addError(e);
+                    } finally {
+                        dc.restoreState();
+                    }
                 }
             }
-        } else {
-            //we had an error while loading the tile
+        } finally {
             target.addDone(1);
         }
     }

@@ -19,21 +19,24 @@
 
 package org.mapfish.print.map.renderers.vector;
 
-import java.awt.geom.AffineTransform;
+import com.itextpdf.awt.geom.AffineTransform;
+
+import com.itextpdf.text.pdf.PdfContentByte;
+import com.itextpdf.text.pdf.PdfGState;
 
 import org.mapfish.print.InvalidValueException;
+import com.vividsolutions.jts.geom.Coordinate;
+
+import static java.lang.Float.parseFloat;
 import org.mapfish.print.RenderingContext;
+import com.vividsolutions.jts.geom.LineString;
 import org.mapfish.print.config.ColorWrapper;
 import org.mapfish.print.utils.PJsonObject;
-
-import com.lowagie.text.pdf.PdfContentByte;
-import com.lowagie.text.pdf.PdfGState;
-import com.vividsolutions.jts.geom.Coordinate;
-import com.vividsolutions.jts.geom.LineString;
 
 public class LineStringRenderer extends GeometriesRenderer<LineString> {
     protected static void applyStyle(RenderingContext context, PdfContentByte dc, PJsonObject style, PdfGState state) {
         if (style == null) return;
+
         if (style.optString("strokeColor") != null) {
             dc.setColorStroke(ColorWrapper.convertColor(style.getString("strokeColor")));
         }
@@ -52,6 +55,18 @@ public class LineStringRenderer extends GeometriesRenderer<LineString> {
                 dc.setLineCap(PdfContentByte.LINE_CAP_PROJECTING_SQUARE);
             } else {
                 throw new InvalidValueException("strokeLinecap", linecap);
+            }
+        }
+        final String linejoin = style.optString("strokeLinejoin");
+        if (linejoin != null) {
+            if (linejoin.equalsIgnoreCase("bevel")) {
+                dc.setLineJoin(PdfContentByte.LINE_JOIN_BEVEL);
+            } else if (linejoin.equalsIgnoreCase("miter")) {
+                dc.setLineJoin(PdfContentByte.LINE_JOIN_MITER);
+            } else if (linejoin.equalsIgnoreCase("round")) {
+                dc.setLineJoin(PdfContentByte.LINE_JOIN_ROUND);
+            } else {
+                throw new InvalidValueException("strokeLinejoin", linejoin);
             }
         }
         final String dashStyle = style.optString("strokeDashstyle");
@@ -73,6 +88,21 @@ public class LineStringRenderer extends GeometriesRenderer<LineString> {
                 dc.setLineDash(def, 0);
             } else if (dashStyle.equalsIgnoreCase("solid")) {
 
+            } else if (dashStyle.contains(" ")) {
+                //check for pattern if empty array, throw.
+                try {
+                    String[] x = dashStyle.split(" ");
+                    if(x.length > 1){
+                        final float[] def = new float[x.length];
+                        for (int i=0; i<x.length; i++) {
+                            def[i] = parseFloat(x[i]);
+                        }
+                        dc.setLineDash(def,0);
+                    }
+                } catch(NumberFormatException e){
+
+                }
+                //assume solid!
             } else {
                 throw new InvalidValueException("strokeDashstyle", dashStyle);
             }

@@ -36,12 +36,12 @@ import org.mapfish.print.utils.PJsonObject;
  * Support the OSM tile layout.
  */
 public class OsmMapReader extends TileableMapReader {
-	public static class Factory implements MapReaderFactory {
-		@Override
-		public List<? extends MapReader> create(String type, RenderingContext context,
-				PJsonObject params) {
-			return Collections.singletonList(new OsmMapReader("t", context, params));
-		}
+    public static class Factory implements MapReaderFactory {
+        @Override
+        public List<? extends MapReader> create(String type, RenderingContext context,
+                PJsonObject params) {
+            return Collections.singletonList(new OsmMapReader("t", context, params));
+        }
     }
 
     protected final String layer;
@@ -51,45 +51,76 @@ public class OsmMapReader extends TileableMapReader {
         this.layer = layer;
         PJsonArray maxExtent = params.getJSONArray("maxExtent");
         PJsonArray tileSize = params.getJSONArray("tileSize");
-        tileCacheLayerInfo = new OsmLayerInfo(params.getJSONArray("resolutions"), tileSize.getInt(0), tileSize.getInt(1), maxExtent.getFloat(0), maxExtent.getFloat(1), maxExtent.getFloat(2), maxExtent.getFloat(3), params.getString("extension"));
-    }
 
+        final PJsonArray resolutions = params.getJSONArray("resolutions");
+        final String extension = params.getString("extension");
+        final int width = tileSize.getInt(0);
+        final int hieght = tileSize.getInt(1);
+        final float minX = maxExtent.getFloat(0);
+        final float minY = maxExtent.getFloat(1);
+        final float maxX = maxExtent.getFloat(2);
+        final float maxY = maxExtent.getFloat(3);
+
+        tileCacheLayerInfo = new OsmLayerInfo(resolutions, width, hieght, minX, minY, maxX, maxY,
+                extension);
+    }
+    @Override
     protected TileRenderer.Format getFormat() {
         return TileRenderer.Format.BITMAP;
     }
-
+    @Override
     protected void addCommonQueryParams(Map<String, List<String>> result, Transformer transformer, String srs, boolean first) {
         //not much query params for this protocol...
     }
+    @Override
+    protected URI getTileUri(URI commonUri, Transformer transformer, double minGeoX, double minGeoY, double maxGeoX, double maxGeoY, long w, long h) throws URISyntaxException, UnsupportedEncodingException {
+        double targetResolution = (maxGeoX - minGeoX) / w;
+        OsmLayerInfo.ResolutionInfo resolution = tileCacheLayerInfo
+                .getNearestResolution(targetResolution);
 
-    protected URI getTileUri(URI commonUri, Transformer transformer, float minGeoX, float minGeoY, float maxGeoX, float maxGeoY, long w, long h) throws URISyntaxException, UnsupportedEncodingException {
-        float targetResolution = (maxGeoX - minGeoX) / w;
-        OsmLayerInfo.ResolutionInfo resolution = tileCacheLayerInfo.getNearestResolution(targetResolution);
+        int tileX = (int) Math
+                .round((minGeoX - tileCacheLayerInfo.getMinX()) / (resolution.value * w));
+        int tileY = (int) Math
+                .round((tileCacheLayerInfo.getMaxY() - minGeoY) / (resolution.value * h));
 
-        int tileX = Math.round((minGeoX - tileCacheLayerInfo.getMinX()) / (resolution.value * w));
-        int tileY = Math.round((tileCacheLayerInfo.getMaxY() - minGeoY) / (resolution.value * h));
+        int tileX1 = tileX;
+        int tileY1 = tileY - 1;
+
+        // Wrap Date Line
+        if (resolution.index < 3) {
+            tileX = (int) (tileX < 0 ? Math.pow(resolution.index, 2) + tileX : tileX);
+            tileY = (int) (tileY < 0 ? Math.pow(resolution.index, 2) + tileY : tileY);
+    
+            tileX1 = (int) Math.round(tileX % Math.pow(resolution.index, 2));
+            tileY1 = (int) Math.round(tileY % Math.pow(resolution.index, 2)) - 1;
+    
+            tileY1 = (int) (tileY1 < 0 ? Math.pow(resolution.index, 2) + tileY1 : tileY1);
+        }
 
         StringBuilder path = new StringBuilder();
         if (!commonUri.getPath().endsWith("/")) {
             path.append('/');
         }
-        path.append(String.format("%02d", resolution.index));
-        path.append('/').append(tileX);
-        path.append('/').append(tileY-1);
+
+        path.append(String.format("%d", resolution.index));
+        path.append('/').append(tileX1);
+        path.append('/').append(tileY1);
         path.append('.').append(tileCacheLayerInfo.getExtension());
 
-        return new URI(commonUri.getScheme(), commonUri.getUserInfo(), commonUri.getHost(), commonUri.getPort(), commonUri.getPath() + path, commonUri.getQuery(), commonUri.getFragment());
+        return new URI(commonUri.getScheme(), commonUri.getUserInfo(), commonUri.getHost(),
+                commonUri.getPort(), commonUri.getPath() + path, commonUri.getQuery(),
+                commonUri.getFragment());
     }
 
-
+    @Override
     public boolean testMerge(MapReader other) {
         return false;
     }
-
+    @Override
     public boolean canMerge(MapReader other) {
         return false;
     }
-
+    @Override
     public String toString() {
         return layer;
     }

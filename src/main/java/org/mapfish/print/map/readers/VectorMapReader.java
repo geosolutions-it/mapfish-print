@@ -34,8 +34,8 @@ import org.mapfish.print.map.renderers.vector.FeaturesRenderer;
 import org.mapfish.print.map.renderers.vector.StyledMfGeoFactory;
 import org.mapfish.print.utils.PJsonObject;
 
-import com.lowagie.text.DocumentException;
-import com.lowagie.text.pdf.PdfContentByte;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.pdf.PdfContentByte;
 
 /**
  * Render vector layers. The geometries and the styling comes directly from the spec JSON.
@@ -50,14 +50,14 @@ import com.lowagie.text.pdf.PdfContentByte;
  * </ul>
  */
 public class VectorMapReader extends MapReader {
-	public static class Factory implements MapReaderFactory {
-		@Override
-		public List<? extends MapReader> create(String type, RenderingContext context,
-				PJsonObject params) {
-			return Collections.singletonList(new VectorMapReader(context, params));
-		}
+    public static class Factory implements MapReaderFactory {
+        @Override
+        public List<? extends MapReader> create(String type, RenderingContext context,
+                PJsonObject params) {
+            return Collections.singletonList(new VectorMapReader(context, params));
+        }
     }
-	
+
     private final MfGeo geo;
     private final RenderingContext context;
     private final String name;

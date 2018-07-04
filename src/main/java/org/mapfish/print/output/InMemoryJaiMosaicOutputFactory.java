@@ -18,7 +18,6 @@
  */
 
 package org.mapfish.print.output;
-
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.awt.image.RenderedImage;
@@ -44,14 +43,14 @@ import org.mapfish.print.RenderingContext;
 import org.mapfish.print.TimeLogger;
 import org.mapfish.print.utils.PJsonObject;
 
-import com.lowagie.text.DocumentException;
+import com.itextpdf.text.DocumentException;
 
 /**
- * An output factory that uses pdf box to parse the pdf and create a collection of BufferedImages.  
- * 
+ * An output factory that uses pdf box to parse the pdf and create a collection of BufferedImages.
+ *
  * Then using JAI Mosaic operation the buffered images are combined into one RenderableImage (virtual image)
  * and that is written to a file using ImageIO
- * 
+ *
  * User: jeichar
  * Date: Oct 18, 2010
  * Time: 2:00:30 PM
@@ -59,12 +58,12 @@ import com.lowagie.text.DocumentException;
 public class InMemoryJaiMosaicOutputFactory implements OutputFormatFactory {
 
     public List<String> formats() {
-	try {
-	    String[] formats = ImageIO.getWriterFormatNames();
-	    return Arrays.asList(formats);
-	} catch (Throwable t) {
-	    return new ArrayList<String>();
-	}
+        try {
+            String[] formats = ImageIO.getWriterFormatNames();
+            return Arrays.asList(formats);
+        } catch (Throwable t) {
+            return new ArrayList<String>();
+        }
     }
 
     public OutputFormat create(String format) {

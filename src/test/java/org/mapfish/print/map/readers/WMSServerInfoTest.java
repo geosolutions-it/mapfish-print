@@ -19,6 +19,10 @@
 
 package org.mapfish.print.map.readers;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -30,9 +34,6 @@ import org.mapfish.print.PrintTestCase;
 import org.xml.sax.SAXException;
 
 public class WMSServerInfoTest extends PrintTestCase {
-    public WMSServerInfoTest(String name) {
-        super(name);
-    }
 
     public void testParseTileCache() throws IOException, SAXException, ParserConfigurationException {
         String response = "<?xml version='1.0' encoding=\"ISO-8859-1\" standalone=\"no\" ?>\n" +
@@ -112,14 +113,15 @@ public class WMSServerInfoTest extends PrintTestCase {
                 "        </WMT_MS_Capabilities>";
 
         InputStream stream = new ByteArrayInputStream(response.getBytes("ISO-8859-1"));
-        WMSServerInfo info = WMSServerInfo.parseCapabilities(stream);
+        WMSServiceInfo.WMSServiceInfoLoader loader = new WMSServiceInfo.WMSServiceInfoLoader();
+        WMSServiceInfo info = loader.parseInfo(stream);
         assertEquals(true, info.isTileCache());
         TileCacheLayerInfo layerInfo = info.getTileCacheLayer("cn");
         assertNotNull(layerInfo);
         assertEquals(256, layerInfo.getWidth());
         assertEquals(256, layerInfo.getHeight());
-        final float[] resolutions = layerInfo.getResolutions();
-        final float[] expectedResolutions = {
+        final double[] resolutions = layerInfo.getResolutions();
+        final double[] expectedResolutions = {
                 800.0F,
                 400.0F,
                 200.0F,
@@ -228,14 +230,15 @@ public class WMSServerInfoTest extends PrintTestCase {
                 "        </WMT_MS_Capabilities>";
 
         InputStream stream = new ByteArrayInputStream(response.getBytes("ISO-8859-1"));
-        WMSServerInfo info = WMSServerInfo.parseCapabilities(stream);
+        WMSServiceInfo.WMSServiceInfoLoader loader = new WMSServiceInfo.WMSServiceInfoLoader();
+        WMSServiceInfo info = loader.parseInfo(stream);
         assertEquals(true, info.isTileCache());
         TileCacheLayerInfo layerInfo = info.getTileCacheLayer("cn");
         assertNotNull(layerInfo);
         assertEquals(256, layerInfo.getWidth());
         assertEquals(256, layerInfo.getHeight());
-        final float[] resolutions = layerInfo.getResolutions();
-        final float[] expectedResolutions = {
+        final double[] resolutions = layerInfo.getResolutions();
+        final double[] expectedResolutions = {
                 800.0F,
                 400.0F,
                 200.0F,
@@ -380,7 +383,8 @@ public class WMSServerInfoTest extends PrintTestCase {
                 "</WMT_MS_Capabilities>";
 
         InputStream stream = new ByteArrayInputStream(response.getBytes("UTF-8"));
-        WMSServerInfo info = WMSServerInfo.parseCapabilities(stream);
+        WMSServiceInfo.WMSServiceInfoLoader loader = new WMSServiceInfo.WMSServiceInfoLoader();
+        WMSServiceInfo info = loader.parseInfo(stream);
         assertEquals(false, info.isTileCache());
     }
 
@@ -753,7 +757,8 @@ public class WMSServerInfoTest extends PrintTestCase {
                 "</WMT_MS_Capabilities>";
 
         InputStream stream = new ByteArrayInputStream(response.getBytes("UTF-8"));
-        WMSServerInfo info = WMSServerInfo.parseCapabilities(stream);
+        WMSServiceInfo.WMSServiceInfoLoader loader = new WMSServiceInfo.WMSServiceInfoLoader();
+        WMSServiceInfo info = loader.parseInfo(stream);
         assertEquals(false, info.isTileCache());
     }
 }

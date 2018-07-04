@@ -20,6 +20,12 @@
 package org.mapfish.print;
 
 import java.io.BufferedReader;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -31,40 +37,44 @@ import java.util.Map;
 
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
+import org.json.JSONObject;
+import org.junit.Test;
+import org.mapfish.print.config.Config;
+import org.mapfish.print.config.ConfigFactory;
+import org.mapfish.print.config.ConfigTest;
+import org.mapfish.print.utils.PJsonObject;
 
-import com.lowagie.text.DocumentException;
-import com.lowagie.text.Image;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.Font;
 
 public class PDFUtilsTest extends PdfTestCase {
-    public static final Logger LOGGER = Logger.getLogger(PDFUtilsTest.class);
+    private static final String FIVE_HUNDRED_ROUTE = "/500";
+    private static final String NOT_IMAGE_ROUTE = "/notImage";
     private FakeHttpd httpd;
-    private static final int PORT = 8181;
-
-    public PDFUtilsTest(String name) {
-        super(name);
-    }
 
     @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Exception {
         super.setUp();
         Logger.getLogger("org.apache.commons.httpclient").setLevel(Level.INFO);
         Logger.getLogger("httpclient").setLevel(Level.INFO);
 
-        Map<String, FakeHttpd.HttpAnswerer> routings = new HashMap<String, FakeHttpd.HttpAnswerer>();
-        routings.put("/500", new FakeHttpd.HttpAnswerer(500, "Server error", "text/plain", "Server error"));
-        routings.put("/notImage", new FakeHttpd.HttpAnswerer(200, "OK", "text/plain", "Blahblah"));
-        httpd = new FakeHttpd(PORT, routings);
+        httpd = new FakeHttpd(
+                FakeHttpd.Route.errorResponse(FIVE_HUNDRED_ROUTE, 500, "Server error"),
+                FakeHttpd.Route.textResponse(NOT_IMAGE_ROUTE, "Blahblah")
+                );
         httpd.start();
+
     }
 
     @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         httpd.shutdown();
         super.tearDown();
     }
 
+    @Test
     public void testGetImageDirectWMSError() throws URISyntaxException, IOException, DocumentException {
-        URI uri = new URI("http://localhost:" + PORT + "/notImage");
+        URI uri = new URI("http://localhost:" + httpd.getPort() + NOT_IMAGE_ROUTE);
         try {
             doc.newPage();
             PDFUtils.getImageDirect(context, uri);
@@ -96,29 +106,99 @@ public class PDFUtilsTest extends PdfTestCase {
         }
     }
 
+    @Test
     public void testGetImageDirectHTTPError() throws URISyntaxException, IOException, DocumentException {
-        URI uri = new URI("http://localhost:" + PORT + "/500");
+        URI uri = new URI("http://localhost:" + httpd.getPort() + FIVE_HUNDRED_ROUTE);
         try {
             doc.newPage();
             PDFUtils.getImageDirect(context, uri);
             fail("Supposed to have thrown an IOException");
         } catch (IOException ex) {
             //expected
-            assertEquals("Error (status=500) while reading the image from " + uri + ": Server error", ex.getMessage());
+            assertEquals("Error (status=500) while reading the image from " + uri + ": Internal Server Error", ex.getMessage());
         }
     }
 
+    @Test
     public void testPlaceholder() throws URISyntaxException, IOException, DocumentException {
-        URI uri = new URI("http://localhost:" + PORT + "/500");
+        URI uri = new URI("http://localhost:" + httpd.getPort() + FIVE_HUNDRED_ROUTE);
         try {
             doc.newPage();
             PDFUtils.getImageDirect(context, uri);
             fail("Supposed to have thrown an IOException");
         } catch (IOException ex) {
             //expected
-            assertEquals("Error (status=500) while reading the image from " + uri + ": Server error", ex.getMessage());
+            assertEquals("Error (status=500) while reading the image from " + uri + ": Internal Server Error", ex.getMessage());
         }
     }
 
+    @Test
+    public void testRenderString_Scale() throws Exception {
+        final File file = ConfigTest.getSampleConfigFiles().get(ConfigTest.GEORCHESTRA_YAML);
+        Config config = new ConfigFactory(this.threadResources).fromYaml(file);
+        context = new RenderingContext(doc, context.getWriter(), config, context.getGlobalParams(), file.getParent(),
+                context.getLayout(), context.getHeaders());
+        JSONObject internal = new JSONObject();
+        internal.accumulate("scaleLbl", "Scale Label");
+        internal.append("bbox", "-10");
+        internal.append("bbox", "-10");
+        internal.append("bbox", "10");
+        internal.append("bbox", "10");
+        PJsonObject params = new PJsonObject(internal, "params");
+        Font font = new Font();
+        context.getLayout().getMainPage().getMap(null).setWidth("300");
+        context.getLayout().getMainPage().getMap(null).setHeight("600");
+        PDFUtils.renderString(context, params, "${scaleLbl}1:${format %,d scale}", 0, font, null,
+                false);
 
+    }
+    
+    @Test
+    public void testRenderString_ScaleForMultipleMaps() throws Exception {
+        final File file = ConfigTest.getSampleConfigFiles().get("configMultipleMaps.yaml");
+        Config config = new ConfigFactory(this.threadResources).fromYaml(file);
+        context = new RenderingContext(doc, context.getWriter(), config, context.getGlobalParams(), file.getParent(),
+                config.getLayout("A4 portrait"), context.getHeaders());
+        JSONObject internal = new JSONObject();
+        
+        
+        
+        internal.accumulate("scaleLbl", "Scale Label");
+        
+        JSONObject mainMap = new JSONObject();
+        mainMap.append("bbox", "-10");
+        mainMap.append("bbox", "-10");
+        mainMap.append("bbox", "10");
+        mainMap.append("bbox", "10");
+        
+        JSONObject otherMap = new JSONObject();
+        otherMap.append("bbox", "-10000");
+        otherMap.append("bbox", "-10000");
+        otherMap.append("bbox", "10000");
+        otherMap.append("bbox", "10000");
+        
+        JSONObject maps = new JSONObject();
+        maps.accumulate("main", mainMap);
+        maps.accumulate("other", otherMap);
+        
+        internal.accumulate("maps", maps);
+        
+        
+        PJsonObject params = new PJsonObject(internal, "params");
+        Font font = new Font();
+        
+        context.getLayout().getMainPage().getMap("main").setWidth("300");
+        context.getLayout().getMainPage().getMap("main").setHeight("600");
+        context.getLayout().getMainPage().getMap("other").setWidth("300");
+        context.getLayout().getMainPage().getMap("other").setHeight("600");
+        
+        assertTrue(PDFUtils
+                .renderString(context, params, "${scaleLbl}1:${format %,d scale.main}", 0, font, null,
+                        false)
+                .getContent().contains("1:25"));
+        assertTrue(PDFUtils
+                .renderString(context, params, "${scaleLbl}1:${format %,d scale.other}", 0, font, null,
+                        false)
+                .getContent().contains("1:200"));
+    }
 }

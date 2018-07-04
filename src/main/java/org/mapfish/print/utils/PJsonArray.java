@@ -73,6 +73,14 @@ public class PJsonArray extends PJsonElement {
         return (float) val;
     }
 
+    public double getDouble(int i) {
+        double val = array.optDouble(i, Double.MAX_VALUE);
+        if (val == Double.MAX_VALUE) {
+            throw new JsonMissingException(this, "[" + i + "]");
+        }
+        return val;
+    }
+
     public String getString(int i) {
         String val = array.optString(i, null);
         if (val == null) {
@@ -82,7 +90,7 @@ public class PJsonArray extends PJsonElement {
     }
 
     /**
-     * @deprecated Use only if you know what you are doing! 
+     * @deprecated Use only if you know what you are doing!
      */
     public JSONArray getInternalArray() {
         return array;

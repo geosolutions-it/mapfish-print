@@ -19,6 +19,7 @@
 
 package org.mapfish.print.config.layout;
 
+import com.itextpdf.text.BaseColor;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -37,11 +38,12 @@ import org.mapfish.print.scalebar.Label;
 import org.mapfish.print.scalebar.ScalebarDrawer;
 import org.mapfish.print.scalebar.Type;
 import org.mapfish.print.utils.DistanceUnit;
+import org.mapfish.print.utils.Maps;
 import org.mapfish.print.utils.PJsonObject;
 
-import com.lowagie.text.DocumentException;
-import com.lowagie.text.Font;
-import com.lowagie.text.pdf.BaseFont;
+import com.itextpdf.text.DocumentException;
+import com.itextpdf.text.Font;
+import com.itextpdf.text.pdf.BaseFont;
 
 /**
  * Block for drawing a !scalebar block.
@@ -78,6 +80,8 @@ public class ScalebarBlock extends FontBlock {
 
     private Double lineWidth = null;
     
+    private String name = null;
+
     private TreeSet<Integer> preferredIntervals = new TreeSet<Integer>(Arrays.asList(1, 2, 5, 10));
 
     private TreeSet<Double> preferredIntervalFractions = new TreeSet<Double>(Arrays.asList(0.0));
@@ -89,7 +93,7 @@ public class ScalebarBlock extends FontBlock {
             throw new InvalidJsonValueException(globalParams, "units", globalParams.getString("units"));
         }
         DistanceUnit scaleUnit = (units != null ? units : mapUnits);
-        final int scale = context.getLayout().getMainPage().getMap().createTransformer(context, params).getScale();
+        final double scale = context.getLayout().getMainPage().getMap(name).createTransformer(context, params).getScale();
 
         final double maxWidthIntervaleDistance = DistanceUnit.PT.convertTo(maxSize, scaleUnit) * scale / intervals;
         final double intervalDistance = getNearestNiceValue(maxWidthIntervaleDistance, scaleUnit);
@@ -101,7 +105,7 @@ public class ScalebarBlock extends FontBlock {
     /**
      * Try recursively to find the correct layout.
      */
-    private void tryLayout(RenderingContext context, PdfElement target, Font pdfFont, DistanceUnit scaleUnit, int scale, double intervalDistance, int tryNumber) throws DocumentException {
+    private void tryLayout(RenderingContext context, PdfElement target, Font pdfFont, DistanceUnit scaleUnit, double scale, double intervalDistance, int tryNumber) throws DocumentException {
         if (tryNumber > 3) {
             // no inspection ThrowableInstanceNeverThrown
             context.addError(new InvalidValueException("maxSize too small", maxSize));
@@ -386,11 +390,21 @@ public class ScalebarBlock extends FontBlock {
         return intervals;
     }
 
-    public Color getBarBgColorVal() {
+    public BaseColor getBarBgColorVal() {
         return ColorWrapper.convertColor(barBgColor);
     }
 
-    public Color getColorVal() {
+    public BaseColor getColorVal() {
         return ColorWrapper.convertColor(color);
     }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+    
+    
 }

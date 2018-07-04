@@ -5,3 +5,8 @@ buildSrc/build/
 deploy.sh
 *.class
 /bin
+.classpath
+.gitmodules
+.project
+.settings/
+target/
