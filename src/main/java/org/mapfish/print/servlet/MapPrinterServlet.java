@@ -367,6 +367,19 @@ public class MapPrinterServlet extends BaseMapServlet {
             FileOutputStream out = null;
             try {
                 out = new FileOutputStream(tempFile);
+                if(mapPrinter.getConfig().isAddForwardedFor()) {
+                  String ipAddress = httpServletRequest.getHeader("X-FORWARDED-FOR");  
+                  if (ipAddress != null) {
+                    String[] ips = ipAddress.split(", ");
+                    ipAddress = ips[0];
+                  } else {
+                   ipAddress = httpServletRequest.getRemoteAddr();  
+                  }
+                  if (LOGGER.isDebugEnabled()) {
+                        LOGGER.debug("Forwarded for: " + ipAddress);
+                    }
+                  headers.put("X-Forwarded-For", ipAddress);
+                }
                 mapPrinter.print(specJson, out, headers);
 
                 return tempFile;

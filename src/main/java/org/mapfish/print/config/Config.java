@@ -98,7 +98,8 @@ public class Config implements Closeable {
 
     private boolean tilecacheMerging = false;
     private boolean disableScaleLocking = false;
-
+    private boolean addForwardedFor = false;
+    
     private List<SecurityStrategy> security = Collections.emptyList();
 
     private String outputFilename = "mapfish-print.pdf";
@@ -538,6 +539,15 @@ public class Config implements Closeable {
         return brokenUrlPlaceholder;
     }
 
+	public boolean isAddForwardedFor() {
+		return addForwardedFor;
+	}
+
+	public void setAddForwardedFor(boolean addForwardedFor) {
+		this.addForwardedFor = addForwardedFor;
+	}
+    
+    
     /**
      * Get the url of the proxy that resides between the servlet and the internet.
      * <p/>
