@@ -9,13 +9,13 @@
     <dependency>
       <groupId>org.geotools</groupId>
       <artifactId>gt-epsg-hsql</artifactId>
-      <version>19-SNAPSHOT</version>
+      <version>20-SNAPSHOT</version>
       <scope>compile</scope>
     </dependency>
     <dependency>
       <groupId>org.geotools</groupId>
       <artifactId>gt-render</artifactId>
-      <version>19-SNAPSHOT</version>
+      <version>20-SNAPSHOT</version>
       <scope>compile</scope>
     </dependency>
     <dependency>
@@ -31,9 +31,15 @@
       <scope>compile</scope>
     </dependency>
     <dependency>
-      <groupId>com.vividsolutions</groupId>
-      <artifactId>jts</artifactId>
-      <version>1.13</version>
+      <groupId>org.locationtech.jts</groupId>
+      <artifactId>jts-core</artifactId>
+      <version>1.16.0-RC1</version>
+      <exclusions>
+          <exclusion>
+             <groupId>xerces</groupId>
+             <artifactId>xercesImpl</artifactId>
+          </exclusion>
+      </exclusions>
       <scope>compile</scope>
     </dependency>
     <dependency>
