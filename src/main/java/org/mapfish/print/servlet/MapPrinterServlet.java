@@ -480,7 +480,10 @@ public class MapPrinterServlet extends BaseMapServlet {
     protected File getTempDir() {
         if (tempDir == null) {
             String tempDirPath = getInitParameter("tempdir");
-            if (tempDirPath != null) {
+            if (tempDirPath == null) {
+            	tempDirPath = System.getProperty("MAPFISH_PDF_FOLDER");
+            }
+            if (tempDirPath != null && !"".equals(tempDirPath.trim())) {
                 tempDir = new File(tempDirPath);
             } else {
                 tempDir = (File) getServletContext().getAttribute(CONTEXT_TEMPDIR);
@@ -524,8 +527,13 @@ public class MapPrinterServlet extends BaseMapServlet {
         if (fullUrl != null) {
             return fullUrl.replaceFirst(additionalPath + "$", "");
         } else {
-            return httpServletRequest.getRequestURL().toString().replaceFirst(additionalPath + "$", "");
-        }
+			String customUrl = System.getProperty("PRINT_BASE_URL");
+			if(customUrl != null && !"".equals(customUrl.trim())) {
+				return customUrl.replaceFirst(additionalPath + "$", "");
+			} else {
+			    return httpServletRequest.getRequestURL().toString().replaceFirst(additionalPath + "$", "");
+			}
+		}
     }
 
     /**
