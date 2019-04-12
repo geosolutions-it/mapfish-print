@@ -104,7 +104,25 @@ public class LineStringRenderer extends GeometriesRenderer<LineString> {
                 }
                 //assume solid!
             } else {
-                throw new InvalidValueException("strokeDashstyle", dashStyle);
+                String[] parts = dashStyle.split(" ");
+                if (parts.length < 2) {
+                    throw new InvalidValueException("strokeDashstyle", dashStyle);
+                }
+                try {
+                    // duplicate odd values
+                    final float[] def = new float[parts.length % 2 == 0 ? parts.length : parts.length * 2];
+                    for (int count = 0; count < parts.length; count++) {
+                        def[count] = Float.parseFloat(parts[count]);
+                    }
+                    if (parts.length % 2 != 0) {
+                        for (int count = 0; count < parts.length; count++) {
+                            def[count + parts.length] = Float.parseFloat(parts[count]);
+                        }
+                    }
+                    dc.setLineDash(def, 0);
+                } catch(NumberFormatException e) {
+                    throw new InvalidValueException("strokeDashstyle", dashStyle);
+                }
             }
         }
     }
