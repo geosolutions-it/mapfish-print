@@ -50,6 +50,7 @@ public class CustomBeanWrapper extends DefaultBeanWrapper {
                 Method wm = prop.getWriteMethod();
                 wm.setAccessible(true);
                 wm.invoke(getObject(), new Object[]{value});
+                return;
             }
 
         } catch (Exception e) {

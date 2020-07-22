@@ -155,12 +155,12 @@ public class OrderedResultsExecutor<RESULT> {
     }
 
     /**
-     * One executor thread.
+     * One executor thread. 
      */
     public class Runner implements Runnable {
         public void run() {
             if (LOGGER.isDebugEnabled())
-                LOGGER.debug("Runner [" + name + "] started");
+                LOGGER.debug("Runner ["+name+"] started");
             while (true) {
                 //gets a task to be executed
                 InternalTask<RESULT> cur;
@@ -176,7 +176,7 @@ public class OrderedResultsExecutor<RESULT> {
 
                 if (cur.task == null) {
                     if (LOGGER.isDebugEnabled())
-                        LOGGER.debug("Runner [" + name + "] stopped");
+                        LOGGER.debug("Runner ["+name+"] stopped");
                     return;  //received the signal to stop
                 }
 

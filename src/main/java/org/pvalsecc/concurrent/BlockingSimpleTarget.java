@@ -41,6 +41,19 @@ public class BlockingSimpleTarget extends SynchronousSimpleTarget {
         setTarget(target);
     }
 
+    public void waitForCompletion() {
+        synchronized (sync) {
+            while (!completed) {
+                try {
+                    sync.wait();
+                }
+                catch (InterruptedException ignored) {
+                    //ignored
+                }
+            }
+        }
+    }
+
     public void waitForCompletion(long timeout) throws TimeoutException {
         long maxTime = System.currentTimeMillis() + timeout;
         synchronized (sync) {
