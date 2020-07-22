@@ -34,24 +34,24 @@ import com.itextpdf.text.pdf.PdfContentByte;
  */
 public class Transformer implements Cloneable {
     private static final String GOOGLE_WKT = "PROJCS[\"Google Mercator\","
-            + "GEOGCS[\"WGS 84\","
-            + "DATUM[\"World Geodetic System 1984\","
-            + "SPHEROID[\"WGS 84\", 6378137.0, 298.257223563, AUTHORITY[\"EPSG\",\"7030\"]],"
-            + "AUTHORITY[\"EPSG\",\"6326\"]],"
-            + "PRIMEM[\"Greenwich\", 0.0, AUTHORITY[\"EPSG\",\"8901\"]],"
-            + "UNIT[\"degree\", 0.017453292519943295],"
-            + "AXIS[\"Geodetic latitude\", NORTH],"
-            + "AXIS[\"Geodetic longitude\", EAST],"
-            + "AUTHORITY[\"EPSG\",\"4326\"]],"
-            + "PROJECTION[\"Mercator_1SP\"],"
-            + "PARAMETER[\"semi_minor\", 6378137.0],"
-            + "PARAMETER[\"latitude_of_origin\", 0.0],"
-            + "PARAMETER[\"central_meridian\", 0.0],"
-            + "PARAMETER[\"scale_factor\", 1.0],"
-            + "PARAMETER[\"false_easting\", 0.0],"
-            + "PARAMETER[\"false_northing\", 0.0]," + "UNIT[\"m\", 1.0],"
-            + "AXIS[\"Easting\", EAST]," + "AXIS[\"Northing\", NORTH],"
-            + "AUTHORITY[\"EPSG\",\"900913\"]]";
+                                             + "GEOGCS[\"WGS 84\","
+                                             + "DATUM[\"World Geodetic System 1984\","
+                                             + "SPHEROID[\"WGS 84\", 6378137.0, 298.257223563, AUTHORITY[\"EPSG\",\"7030\"]],"
+                                             + "AUTHORITY[\"EPSG\",\"6326\"]],"
+                                             + "PRIMEM[\"Greenwich\", 0.0, AUTHORITY[\"EPSG\",\"8901\"]],"
+                                             + "UNIT[\"degree\", 0.017453292519943295],"
+                                             + "AXIS[\"Geodetic latitude\", NORTH],"
+                                             + "AXIS[\"Geodetic longitude\", EAST],"
+                                             + "AUTHORITY[\"EPSG\",\"4326\"]],"
+                                             + "PROJECTION[\"Mercator_1SP\"],"
+                                             + "PARAMETER[\"semi_minor\", 6378137.0],"
+                                             + "PARAMETER[\"latitude_of_origin\", 0.0],"
+                                             + "PARAMETER[\"central_meridian\", 0.0],"
+                                             + "PARAMETER[\"scale_factor\", 1.0],"
+                                             + "PARAMETER[\"false_easting\", 0.0],"
+                                             + "PARAMETER[\"false_northing\", 0.0]," + "UNIT[\"m\", 1.0],"
+                                             + "AXIS[\"Easting\", EAST]," + "AXIS[\"Northing\", NORTH],"
+                                             + "AUTHORITY[\"EPSG\",\"900913\"]]";
 
     private float svgFactor = 1.0f;
     public double minGeoX;
@@ -77,7 +77,7 @@ public class Transformer implements Cloneable {
          * The following code has been changed due to the fact that it seems
          * wrong. However, I'm not sure if my "correction" solves the problem
          * for the better. So, please review.
-         * 
+         *
          * The ('wrong') code below can be reformed: (600 + dpi - 1) / dpi = 1 +
          * 599/dpi and is never smaller than 1, since dpi>1. Also, it does not
          * make sense, as this factor gets smaller with increasing values for
@@ -91,10 +91,10 @@ public class Transformer implements Cloneable {
          * to get bigger if DPI increases and at standard 72 DPI needs to be 1.0
          */
         if (isIntegerSvg) { // integerSvg: true # in yaml
-                                                   // config file
+            // config file
             if (dpi < 600) { // target at least 600 DPI, this is a hack and only
-                             // needed for MapServer <= 5.6 where integers
-                             // are put into SVG
+                // needed for MapServer <= 5.6 where integers
+                // are put into SVG
                 svgFactor = 600f / 72.0f;
                 /**
                  * = 8.33 so almost 9 as before with svgFactor being (600 + dpi
@@ -310,7 +310,7 @@ public class Transformer implements Cloneable {
 
     /**
      * @return a transformer with paper dimensions, but that takes into account
-     *         the position of the map and its rotation.
+     * the position of the map and its rotation.
      */
     public AffineTransform getBaseTransform() {
         final AffineTransform result = AffineTransform.getTranslateInstance(
@@ -324,10 +324,9 @@ public class Transformer implements Cloneable {
     }
 
     /**
-     * @param reverseRotation
-     *            True to do the rotation in the other direction
+     * @param reverseRotation True to do the rotation in the other direction
      * @return The affine transformation to go from geographic coordinated to
-     *         paper coordinates
+     * paper coordinates
      */
     public AffineTransform getGeoTransform(boolean reverseRotation) {
         final AffineTransform result = AffineTransform.getTranslateInstance(

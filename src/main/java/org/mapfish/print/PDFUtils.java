@@ -88,37 +88,37 @@ public class PDFUtils {
     private static final Map<String, Image> placeholderCache = new HashMap<String, Image>();
 
     /**
-     * Gets an iText image with a cache that uses PdfTemplates to re-use the same
-     * bitmap content multiple times in order to reduce the file size.
+     * Gets an iText image with a cache that uses PdfTemplates to re-use the same bitmap content multiple times in order to reduce the file size.
      */
-    public static Image getImage(RenderingContext context, URI uri, float w, float h) throws IOException, DocumentException {
+    public static Image getImage(RenderingContext context, URI uri, float w, float h)
+            throws IOException, DocumentException {
         return getImage(context, uri, w, h, 0f);
     }
 
     /**
-     * Gets an iText image with a cache that uses PdfTemplates to re-use the same
-     * bitmap content multiple times in order to reduce the file size.
+     * Gets an iText image with a cache that uses PdfTemplates to re-use the same bitmap content multiple times in order to reduce the file size.
      */
-    public static Image getImage(RenderingContext context, URI uri, float w, float h, float scale) throws IOException, DocumentException {
-        //Check the image is not already used in the PDF file.
+    public static Image getImage(RenderingContext context, URI uri, float w, float h, float scale)
+            throws IOException, DocumentException {
+        // Check the image is not already used in the PDF file.
         //
-        //This part is not protected against multi-threads... worst case, a single image can
-        //be twice in the PDF, if used more than one time. But since only one !map
-        //block is dealed with at a time, this should not happen
+        // This part is not protected against multi-threads... worst case, a single image can
+        // be twice in the PDF, if used more than one time. But since only one !map
+        // block is dealed with at a time, this should not happen
         Map<URI, PdfTemplate> cache = context.getTemplateCache();
         PdfTemplate template = cache.get(uri);
         if (template == null) {
             Image content = getImageDirect(context, uri);
             content.setAbsolutePosition(0, 0);
             final PdfContentByte dc = context.getDirectContent();
-            synchronized (context.getPdfLock()) {  //protect against parallel writing on the PDF file
+            synchronized (context.getPdfLock()) { // protect against parallel writing on the PDF file
                 template = dc.createTemplate(content.getPlainWidth(), content.getPlainHeight());
                 template.addImage(content);
             }
             cache.put(uri, template);
         }
 
-        //fix the size/aspect ratio of the image in function of what is specified by the user
+        // fix the size/aspect ratio of the image in function of what is specified by the user
         if (w == 0.0f) {
             if (h == 0.0f) {
                 scale = scale == 0f ? 1f : scale;
@@ -127,15 +127,14 @@ public class PDFUtils {
             } else {
                 if (scale == 0f) {
                     w = h / template.getHeight() * template.getWidth();
-                }
-                else {
+                } else {
                     float maxh = h;
                     w = template.getWidth() * scale;
                     h = template.getWidth() * scale;
                     float scaleh = h / maxh;
                     if (scaleh > 1f) {
-                        w /=  scaleh;
-                        h /=  scaleh;
+                        w /= scaleh;
+                        h /= scaleh;
                     }
                 }
             }
@@ -143,27 +142,24 @@ public class PDFUtils {
             if (h == 0.0f) {
                 if (scale == 0f) {
                     h = w / template.getWidth() * template.getHeight();
-                }
-                else {
+                } else {
                     float maxw = w;
                     w = template.getWidth() * scale;
                     h = template.getWidth() * scale;
                     float scalew = w / maxw;
                     if (scalew > 1f) {
-                        w /=  scalew;
-                        h /=  scalew;
+                        w /= scalew;
+                        h /= scalew;
                     }
                 }
-            }
-            else {
+            } else {
                 if (scale == 0f) {
                     float scalew = template.getWidth() / w;
                     float scaleh = template.getHeight() / h;
                     float maxscale = Math.max(scalew, scaleh);
                     w = template.getWidth() / maxscale;
                     h = template.getHeight() / maxscale;
-                }
-                else {
+                } else {
                     float maxw = w;
                     float maxh = h;
                     w = template.getWidth() * scale;
@@ -172,8 +168,8 @@ public class PDFUtils {
                     float scaleh = h / maxh;
                     float maxscale = Math.max(scalew, scaleh);
                     if (maxscale > 1f) {
-                        w /=  maxscale;
-                        h /=  maxscale;
+                        w /= maxscale;
+                        h /= maxscale;
                     }
                 }
             }
@@ -187,8 +183,9 @@ public class PDFUtils {
     /**
      * Gets an iText image. Avoids doing the query twice.
      */
-    protected static Image getImageDirect(RenderingContext context, URI uri) throws IOException, DocumentException {
-            return loadImageFromUrl(context, uri, false);
+    protected static Image getImageDirect(RenderingContext context, URI uri)
+            throws IOException, DocumentException {
+        return loadImageFromUrl(context, uri, false);
     }
 
     private static Image loadImageFromUrl(final RenderingContext context, final URI uri,
@@ -223,13 +220,12 @@ public class PDFUtils {
             byte[] image = Base64.decode(base64);
             return Image.getInstance(image);
         } else {
-
             final String contentType;
             final int statusCode;
             final String statusText;
             byte[] data = null;
             try {
-                //read the whole image content in memory, then give that to iText
+                // read the whole image content in memory, then give that to iText
                 if ((uri.getScheme().equals("http") || uri.getScheme().equals("https"))
                         && context.getConfig().localHostForwardIsFrom(uri.getHost())) {
                     String scheme = uri.getScheme();
@@ -278,7 +274,8 @@ public class PDFUtils {
                         for (Map.Entry<String, String> entry : context.getHeaders().entrySet()) {
                             getMethod.setRequestHeader(entry.getKey(), entry.getValue());
                         }
-                        if (LOGGER.isDebugEnabled()) LOGGER.debug("loading image: " + uri);
+                        if (LOGGER.isDebugEnabled())
+                            LOGGER.debug("loading image: " + uri);
                         context.getConfig().getHttpClient(uri).executeMethod(getMethod);
                         statusCode = getMethod.getStatusCode();
                         statusText = getMethod.getStatusText();
@@ -300,9 +297,10 @@ public class PDFUtils {
 
                 if (statusCode == 204) {
                     // returns a transparent image
-                    if (LOGGER.isDebugEnabled()) LOGGER.debug("creating a transparent image for: " + uri);
+                    if (LOGGER.isDebugEnabled())
+                        LOGGER.debug("creating a transparent image for: " + uri);
                     try {
-                        final byte[] maskr = {(byte) 255};
+                        final byte[] maskr = { (byte) 255 };
                         Image mask = Image.getInstance(1, 1, 1, 1, maskr);
                         mask.makeMask();
                         data = new byte[1 * 1 * 3];
@@ -318,7 +316,8 @@ public class PDFUtils {
 
                         Image image = handleImageLoadError(context, e.getMessage());
 
-                        LOGGER.warn("The status code was not a valid code, a default image is being returned.");
+                        LOGGER.warn(
+                                "The status code was not a valid code, a default image is being returned.");
 
                         return image;
                     }
@@ -341,11 +340,13 @@ public class PDFUtils {
 
                     Image image = handleImageLoadError(context, errorMessage);
 
-                    LOGGER.warn("The status code was not a valid code, a default image is being returned.");
+                    LOGGER.warn(
+                            "The status code was not a valid code, a default image is being returned.");
 
                     return image;
                 } else {
-                    if (LOGGER.isDebugEnabled()) LOGGER.debug("loaded image: " + uri);
+                    if (LOGGER.isDebugEnabled())
+                        LOGGER.debug("loaded image: " + uri);
                     return Image.getInstance(data);
                 }
             } catch (IOException e) {
@@ -361,8 +362,8 @@ public class PDFUtils {
     }
 
     /**
-     * In the case url fails to load an image this method should be called to handle the issue.  If the configuration
-     * has a default image for broken image urls then it will be returned otherwise an error will be thrown.
+     * In the case url fails to load an image this method should be called to handle the issue. If the configuration has a default image for broken
+     * image urls then it will be returned otherwise an error will be thrown.
      *
      * @param context the context.
      * @param errorMessage the message of the error to throw in the case the configuration requires it.
@@ -397,14 +398,11 @@ public class PDFUtils {
     }
 
     /**
-     * When we have to do some custom drawing in a block that is layed out by
-     * iText, we first give an empty table with the good dimensions to iText,
-     * then iText will call a callback with the actual position. When that
-     * happens, we use the given drawer to do the actual drawing.
+     * When we have to do some custom drawing in a block that is layed out by iText, we first give an empty table with the good dimensions to iText,
+     * then iText will call a callback with the actual position. When that happens, we use the given drawer to do the actual drawing.
      */
     public static PdfPTable createPlaceholderTable(double width, double height, double spacingAfter,
-                                                   ChunkDrawer drawer, HorizontalAlign align,
-                                                   PDFCustomBlocks customBlocks) {
+            ChunkDrawer drawer, HorizontalAlign align, PDFCustomBlocks customBlocks) {
         PdfPTable placeHolderTable = new PdfPTable(1);
         placeHolderTable.setLockedWidth(true);
         placeHolderTable.setTotalWidth((float) width);
@@ -459,25 +457,25 @@ public class PDFUtils {
                 break;
             }
         }
-        if(asHTML) {
-        	val = result.getContent();
-        	try {
-        		StyleSheet styles = new StyleSheet();
+        if (asHTML) {
+            val = result.getContent();
+            try {
+                StyleSheet styles = new StyleSheet();
                 styles.loadTagStyle("a", "color", "blue");
                 styles.loadTagStyle("a", "text-decoration", "underline");
-				List<Element> list = HTMLWorker.parseToList(new StringReader(val), styles);
-				Paragraph p = new Paragraph();
-				for(Element element : list) {
-					p.add(element);
-				}
-				return p;
-			} catch (IOException e) {
-				throw new DocumentException(e);
-			} catch(Throwable t) {
-				result.add(val);
-			}
+                List<Element> list = HTMLWorker.parseToList(new StringReader(val), styles);
+                Paragraph p = new Paragraph();
+                for (Element element : list) {
+                    p.add(element);
+                }
+                return p;
+            } catch (IOException e) {
+                throw new DocumentException(e);
+            } catch (Throwable t) {
+                result.add(val);
+            }
         } else {
-        	result.add(val);
+            result.add(val);
         }
         return result;
     }
@@ -822,11 +820,13 @@ public class PDFUtils {
             float svgHeight = Float
                     .valueOf(svgHeightString.substring(0, svgHeightString.length() - 2));
             /**
-             * svgFactor needs to be calculated depending on the screen DPI by the PDF DPI
-             * This is 96 / 72 = 4 / 3 ~= 1.3333333 on Windows, but might be different on *nix.
+             * svgFactor needs to be calculated depending on the screen DPI by the PDF DPI This is 96 / 72 = 4 / 3 ~= 1.3333333 on Windows, but might
+             * be different on *nix.
              */
-            final float svgFactor = 25.4f / userAgent.getPixelUnitToMillimeter() / 72f; // 25.4 mm = 1 inch TODO: Might need to get 72 from somewhere else?
-            //float svgFactor = (float) Toolkit.getDefaultToolkit().getScreenResolution() / 72f; // this only works with AWT, i.e. when a window environment is running
+            final float svgFactor = 25.4f / userAgent.getPixelUnitToMillimeter() / 72f; // 25.4 mm = 1 inch TODO: Might need to get 72 from somewhere
+                                                                                        // else?
+            // float svgFactor = (float) Toolkit.getDefaultToolkit().getScreenResolution() / 72f; // this only works with AWT, i.e. when a window
+            // environment is running
             PdfTemplate map = dc.createTemplate(svgWidth * svgFactor, svgHeight * svgFactor);
             PdfGraphics2D g2d = new PdfGraphics2D(map, svgWidth * svgFactor, svgHeight * svgFactor);
             graphics.paint(g2d);
