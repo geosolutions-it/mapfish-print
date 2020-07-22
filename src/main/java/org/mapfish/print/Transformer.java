@@ -19,13 +19,15 @@
 
 package org.mapfish.print;
 
+import com.itextpdf.awt.geom.AffineTransform;
+
 import org.geotools.geometry.DirectPosition2D;
 import org.geotools.referencing.CRS;
+import org.mapfish.print.config.Config;
 import org.geotools.referencing.GeodeticCalculator;
 import org.mapfish.print.utils.DistanceUnit;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
-import com.itextpdf.awt.geom.AffineTransform;
 import com.itextpdf.text.pdf.PdfContentByte;
 
 /**
@@ -145,13 +147,13 @@ public class Transformer implements Cloneable {
             this.maxGeoX = minGeoX + geoWidth;
             this.maxGeoY = minGeoY + geoHeight;
         }
+
     }
 
     private void computeGeodeticBBox(double geoWidth, double geoHeight,
                                      double centerX, double centerY, float dpi, String srsCode) {
         try {
             CoordinateReferenceSystem crs;
-
             if (srsCode.equalsIgnoreCase("EPSG:900913")) {
                 crs = CRS.parseWKT(GOOGLE_WKT);
             } else {
@@ -165,11 +167,13 @@ public class Transformer implements Cloneable {
 
             calc.setDirection(-90, geoWidth / 2.0f);
             minGeoX = (float) calc.getDestinationPosition().getOrdinate(0);
-            calc.setDirection(180, geoHeight / 2.0f);
-            minGeoY = (float) calc.getDestinationPosition().getOrdinate(1);
 
             calc.setDirection(90, geoWidth / 2.0f);
             maxGeoX = (float) calc.getDestinationPosition().getOrdinate(0);
+
+            calc.setDirection(180, geoHeight / 2.0f);
+            minGeoY = (float) calc.getDestinationPosition().getOrdinate(1);
+
             calc.setDirection(0, geoHeight / 2.0f);
             maxGeoY = (float) calc.getDestinationPosition().getOrdinate(1);
 

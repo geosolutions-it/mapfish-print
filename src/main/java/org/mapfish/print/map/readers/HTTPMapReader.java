@@ -32,12 +32,14 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.log4j.Logger;
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.mapfish.print.InvalidJsonValueException;
 import org.mapfish.print.RenderingContext;
 import org.mapfish.print.Transformer;
 import org.mapfish.print.map.ParallelMapTileLoader;
 import org.mapfish.print.map.renderers.TileRenderer;
+import org.mapfish.print.utils.PJsonArray;
 import org.mapfish.print.utils.PJsonObject;
 import org.pvalsecc.misc.MatchAllSet;
 import org.pvalsecc.misc.StringUtils;

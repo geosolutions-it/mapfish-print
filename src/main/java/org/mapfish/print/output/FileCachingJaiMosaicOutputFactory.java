@@ -19,6 +19,19 @@
 
 package org.mapfish.print.output;
 
+import com.itextpdf.text.DocumentException;
+import com.sun.media.jai.codec.FileSeekableStream;
+import org.apache.log4j.Logger;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.rendering.ImageType;
+import org.apache.pdfbox.rendering.PDFRenderer;
+import org.mapfish.print.RenderingContext;
+import org.mapfish.print.utils.PJsonObject;
+
+import javax.imageio.ImageIO;
+import javax.media.jai.JAI;
+import javax.media.jai.RenderedOp;
 import java.awt.image.BufferedImage;
 import java.awt.image.RenderedImage;
 import java.awt.image.renderable.ParameterBlock;
@@ -28,20 +41,6 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
-
-import javax.imageio.ImageIO;
-import javax.media.jai.JAI;
-import javax.media.jai.RenderedOp;
-
-import org.apache.log4j.Logger;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.mapfish.print.RenderingContext;
-import org.mapfish.print.TimeLogger;
-import org.mapfish.print.utils.PJsonObject;
-
-import com.itextpdf.text.DocumentException;
-import com.sun.media.jai.codec.FileSeekableStream;
 
 /**
  * Similar to {@link InMemoryJaiMosaicOutputFactory} in that it uses pdf box to parse pdf.  However it writes
@@ -81,20 +80,14 @@ public class FileCachingJaiMosaicOutputFactory extends InMemoryJaiMosaicOutputFa
                 FileOutputStream tmpOut = new FileOutputStream(tmpFile);
                 RenderingContext context;
                 try {
-                    TimeLogger timeLog = TimeLogger.info(LOGGER, "PDF Creation");
                     context = doPrint(params.withOutput(tmpOut));
-                    timeLog.done();
                 } finally {
                     tmpOut.close();
                 }
 
-                TimeLogger timeLog = TimeLogger.info(LOGGER, "Pdf to image conversion");
                 List<ImageInfo> images = createImages(params.jsonSpec, tmpFile, context);
-                timeLog.done();
 
-                timeLog = TimeLogger.info(LOGGER, "Write Mosaiced Image");
                 drawImage(params.outputStream, images);
-                timeLog.done();
 
                 return context;
             } catch (IOException e) {
@@ -148,11 +141,10 @@ public class FileCachingJaiMosaicOutputFactory extends InMemoryJaiMosaicOutputFa
             List<ImageInfo> images = new ArrayList<ImageInfo>();
             PDDocument pdf = PDDocument.load(tmpFile);
             try {
-                @SuppressWarnings("unchecked")
-				List<PDPage> pages = pdf.getDocumentCatalog().getAllPages();
-
-                for (PDPage page : pages) {
-                    BufferedImage img = page.convertToImage(BufferedImage.TYPE_INT_RGB, calculateDPI(context, jsonSpec));
+                PDFRenderer pdfRenderer = new PDFRenderer(pdf);
+                for (PDPage page : pdf.getPages())
+                {
+                    BufferedImage img = pdfRenderer.renderImageWithDPI(images.size(), calculateDPI(context, jsonSpec), ImageType.RGB);
                     File file = File.createTempFile("pdfToImage", "tiff");
                     ImageIO.write(img, "TIFF", file);
                     images.add(new ImageInfo(file, img.getWidth(), img.getHeight()));

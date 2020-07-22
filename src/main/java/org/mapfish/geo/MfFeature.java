@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013  Camptocamp
+ * Copyright (C) 2008  Camptocamp
  *
  * This file is part of MapFish Server
  *
@@ -17,3 +17,33 @@
  * along with MapFish Server.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+package org.mapfish.geo;
+
+import org.json.JSONWriter;
+import org.json.JSONException;
+
+/**
+ *
+ * @author Eric Lemoine, Camptocamp.
+ */
+public abstract class MfFeature implements MfGeo {
+    /**
+     * Creates a new instance of MfFeature
+     */
+    protected MfFeature() {
+    }
+    
+    public GeoType getGeoType() {
+        return GeoType.FEATURE;
+    }
+    
+    // Subclasses must implement these methods. -----------
+
+    public abstract String getFeatureId();
+    public abstract MfGeometry getMfGeometry();
+
+    /**
+     * Add the "key" and "value" pairs to the provided builder.
+     */
+    public abstract void toJSON(JSONWriter builder) throws JSONException;
+}

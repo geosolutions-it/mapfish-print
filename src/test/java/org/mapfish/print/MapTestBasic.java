@@ -1,21 +1,13 @@
 package org.mapfish.print;
 
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.TreeSet;
+import com.codahale.metrics.MetricRegistry;
 
-import org.apache.log4j.BasicConfigurator;
-import org.apache.log4j.ConsoleAppender;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
-import org.apache.log4j.PatternLayout;
+
+import com.itextpdf.text.Document;
+import com.itextpdf.text.PageSize;
+import com.itextpdf.text.pdf.PdfWriter;
+import org.apache.log4j.*;
 import org.json.JSONObject;
 import org.junit.After;
 import org.junit.Before;
@@ -30,10 +22,11 @@ import org.mapfish.print.config.layout.MapBlock;
 import org.mapfish.print.utils.PJsonObject;
 import org.pvalsecc.misc.FileUtilities;
 
-import com.codahale.metrics.MetricRegistry;
-import com.itextpdf.text.Document;
-import com.itextpdf.text.PageSize;
-import com.itextpdf.text.pdf.PdfWriter;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.*;
 
 public abstract class MapTestBasic {
 

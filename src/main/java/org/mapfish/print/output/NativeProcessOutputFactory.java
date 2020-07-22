@@ -18,6 +18,13 @@
  */
 
 package org.mapfish.print.output;
+import org.mapfish.print.utils.PJsonObject;
+import org.mapfish.print.utils.PJsonArray;
+import org.mapfish.print.RenderingContext;
+import org.json.JSONException;
+
+import org.apache.log4j.Logger;
+
 import java.io.BufferedReader;
 import java.io.Closeable;
 import java.io.File;
@@ -33,13 +40,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
-
-import org.apache.log4j.Logger;
-import org.json.JSONException;
-import org.mapfish.print.RenderingContext;
-import org.mapfish.print.TimeLogger;
-import org.mapfish.print.utils.PJsonArray;
-import org.mapfish.print.utils.PJsonObject;
 
 import com.itextpdf.text.DocumentException;
 
@@ -179,22 +179,16 @@ public class NativeProcessOutputFactory implements OutputFormatFactory {
                 FileOutputStream tmpOut = new FileOutputStream(tmpPdfFile);
                 RenderingContext context;
                 try {
-                    TimeLogger timeLog = TimeLogger.info(LOGGER, "PDF Creation");
                     context = doPrint(params.withOutput(tmpOut));
-                    timeLog.done();
                 } finally {
                     tmpOut.close();
                 }
 
-                TimeLogger timeLog = TimeLogger.info(LOGGER, "Pdf to image conversion");
                 final String suffix = "." + format;
                 tmpImageFile = File.createTempFile("mapfishprint", suffix);
                 createImage(params.jsonSpec, tmpPdfFile, tmpImageFile, context);
-                timeLog.done();
 
-                timeLog = TimeLogger.info(LOGGER, "Write Image");
                 drawImage(params.outputStream, tmpImageFile);
-                timeLog.done();
 
                 return context;
             } catch (IOException e) {

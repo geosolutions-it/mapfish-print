@@ -18,7 +18,22 @@
  */
 
 package org.mapfish.print.output;
-import java.awt.RenderingHints;
+
+import com.itextpdf.text.DocumentException;
+import org.apache.log4j.Logger;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.rendering.ImageType;
+import org.apache.pdfbox.rendering.PDFRenderer;
+import org.mapfish.print.RenderingContext;
+import org.mapfish.print.utils.PJsonObject;
+
+import javax.imageio.ImageIO;
+import javax.media.jai.JAI;
+import javax.media.jai.RenderedOp;
+import javax.media.jai.TileCache;
+import javax.media.jai.operator.MosaicDescriptor;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.RenderedImage;
 import java.awt.image.renderable.ParameterBlock;
@@ -29,21 +44,6 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-
-import javax.imageio.ImageIO;
-import javax.media.jai.JAI;
-import javax.media.jai.RenderedOp;
-import javax.media.jai.TileCache;
-import javax.media.jai.operator.MosaicDescriptor;
-
-import org.apache.log4j.Logger;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.mapfish.print.RenderingContext;
-import org.mapfish.print.TimeLogger;
-import org.mapfish.print.utils.PJsonObject;
-
-import com.itextpdf.text.DocumentException;
 
 /**
  * An output factory that uses pdf box to parse the pdf and create a collection of BufferedImages.
@@ -100,20 +100,13 @@ public class InMemoryJaiMosaicOutputFactory implements OutputFormatFactory {
                 FileOutputStream tmpOut = new FileOutputStream(tmpFile);
                 RenderingContext context;
                 try {
-                    TimeLogger timeLog = TimeLogger.info(LOGGER, "PDF Creation");
                     context =  doPrint(params.withOutput(tmpOut));
-                    timeLog.done();
                 } finally {
                     tmpOut.close();
                 }
 
-                TimeLogger timeLog = TimeLogger.info(LOGGER, "Pdf to image conversion");
                 List<BufferedImage> images = createImages(params.jsonSpec, tmpFile, context);
-                timeLog.done();
-
-                timeLog = TimeLogger.info(LOGGER, "Write Image");
                 drawImage(params.outputStream, images);
-                timeLog.done();
 
                 return context;
             } catch (IOException e) {
@@ -162,10 +155,10 @@ public class InMemoryJaiMosaicOutputFactory implements OutputFormatFactory {
             PDDocument pdf = PDDocument.load(tmpFile);
             try {
                 @SuppressWarnings("unchecked")
-				List<PDPage> pages = pdf.getDocumentCatalog().getAllPages();
-
-                for (PDPage page : pages) {
-                    BufferedImage img = page.convertToImage(BufferedImage.TYPE_4BYTE_ABGR, calculateDPI(context, jsonSpec));
+                PDFRenderer pdfRenderer = new PDFRenderer(pdf);
+                for (PDPage page : pdf.getPages())
+                {
+                    BufferedImage img = pdfRenderer.renderImageWithDPI(images.size(), calculateDPI(context, jsonSpec), ImageType.ARGB);
                     images.add(img);
                 }
             } finally {

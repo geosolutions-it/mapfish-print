@@ -19,22 +19,8 @@
 
 package org.mapfish.print.config;
 
-import java.io.Closeable;
-import java.net.InetSocketAddress;
-import java.net.MalformedURLException;
-import java.net.Proxy;
-import java.net.ProxySelector;
-import java.net.SocketException;
-import java.net.URI;
-import java.net.UnknownHostException;
-import java.text.NumberFormat;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.TreeSet;
-//import org.mapfish.print.output.OutputFormat;
-
+//import org.apache.commons.httpclient.HostConfiguration;
+import com.codahale.metrics.MetricRegistry;
 import org.apache.commons.httpclient.HttpClient;
 import org.apache.commons.httpclient.HttpMethodBase;
 import org.apache.commons.httpclient.MultiThreadedHttpConnectionManager;
@@ -54,8 +40,21 @@ import org.mapfish.print.map.readers.WMSServiceInfo;
 import org.mapfish.print.output.OutputFactory;
 import org.pvalsecc.concurrent.OrderedResultsExecutor;
 
-//import org.apache.commons.httpclient.HostConfiguration;
-import com.codahale.metrics.MetricRegistry;
+import java.io.Closeable;
+import java.net.InetSocketAddress;
+import java.net.MalformedURLException;
+import java.net.Proxy;
+import java.net.ProxySelector;
+import java.net.SocketException;
+import java.net.URI;
+import java.net.UnknownHostException;
+import java.text.NumberFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.TreeSet;
+//import org.mapfish.print.output.OutputFormat;
 
 /**
  * Bean mapping the root of the configuration file.
@@ -223,7 +222,7 @@ public class Config implements Closeable {
 
     public boolean isScalePresent(double targetScale) {
         for (double scale : scales) {
-            if (Math.abs(((long) scale) - targetScale) < 0.001) {
+            if (Math.abs(scale - targetScale) < 0.001) {
                 return true;
             }
         }

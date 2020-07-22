@@ -19,25 +19,25 @@
 
 package org.mapfish.print.map.renderers.vector;
 
-import com.itextpdf.awt.geom.AffineTransform;
-import com.itextpdf.awt.geom.Point2D;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.GeometryCollection;
+import org.locationtech.jts.geom.LineString;
+import org.locationtech.jts.geom.LinearRing;
+import org.locationtech.jts.geom.MultiLineString;
+import org.locationtech.jts.geom.MultiPoint;
+import org.locationtech.jts.geom.MultiPolygon;
+import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.Polygon;
 import org.mapfish.print.RenderingContext;
 import org.mapfish.print.utils.PJsonObject;
 
+import com.itextpdf.awt.geom.AffineTransform;
+import com.itextpdf.awt.geom.Point2D;
 import com.itextpdf.text.pdf.PdfContentByte;
-import com.vividsolutions.jts.geom.Coordinate;
-import com.vividsolutions.jts.geom.Geometry;
-import com.vividsolutions.jts.geom.GeometryCollection;
-import com.vividsolutions.jts.geom.LineString;
-import com.vividsolutions.jts.geom.LinearRing;
-import com.vividsolutions.jts.geom.MultiLineString;
-import com.vividsolutions.jts.geom.MultiPoint;
-import com.vividsolutions.jts.geom.MultiPolygon;
-import com.vividsolutions.jts.geom.Point;
-import com.vividsolutions.jts.geom.Polygon;
 
 /**
  * iText renderer for JTS geometries.

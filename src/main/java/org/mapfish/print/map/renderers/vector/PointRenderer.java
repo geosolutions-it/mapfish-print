@@ -19,24 +19,24 @@
 
 package org.mapfish.print.map.renderers.vector;
 
-import com.itextpdf.awt.geom.AffineTransform;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.Point;
 import org.mapfish.print.InvalidValueException;
 import org.mapfish.print.PDFUtils;
 import org.mapfish.print.RenderingContext;
 import org.mapfish.print.utils.PJsonObject;
 
+import com.itextpdf.awt.geom.AffineTransform;
 import com.itextpdf.text.BadElementException;
 import com.itextpdf.text.DocumentException;
 import com.itextpdf.text.Image;
 import com.itextpdf.text.pdf.PdfContentByte;
 import com.itextpdf.text.pdf.PdfGState;
-import com.vividsolutions.jts.geom.Coordinate;
-import com.vividsolutions.jts.geom.Point;
 
 /**
  * Render point geometries. Support for the 3 OL stylings:

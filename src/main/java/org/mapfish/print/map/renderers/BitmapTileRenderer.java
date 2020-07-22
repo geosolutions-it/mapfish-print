@@ -19,27 +19,27 @@
 
 package org.mapfish.print.map.renderers;
 
-import com.itextpdf.awt.geom.AffineTransform;
-import com.itextpdf.awt.geom.Point2D;
 import java.io.IOException;
 import java.net.URI;
 import java.util.List;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.locationtech.jts.geom.Coordinate;
+import org.locationtech.jts.geom.GeometryFactory;
+import org.locationtech.jts.geom.Polygon;
 import org.mapfish.print.PDFUtils;
 import org.mapfish.print.RenderingContext;
 import org.mapfish.print.Transformer;
 import org.mapfish.print.map.MapTileTask;
 import org.mapfish.print.map.ParallelMapTileLoader;
 
+import com.itextpdf.awt.geom.AffineTransform;
+import com.itextpdf.awt.geom.Point2D;
 import com.itextpdf.text.DocumentException;
 import com.itextpdf.text.Image;
 import com.itextpdf.text.pdf.PdfContentByte;
 import com.itextpdf.text.pdf.PdfGState;
-import com.vividsolutions.jts.geom.Coordinate;
-import com.vividsolutions.jts.geom.GeometryFactory;
-import com.vividsolutions.jts.geom.Polygon;
 
 public class BitmapTileRenderer extends TileRenderer {
     private static final Log LOGGER = LogFactory.getLog(BitmapTileRenderer.class);

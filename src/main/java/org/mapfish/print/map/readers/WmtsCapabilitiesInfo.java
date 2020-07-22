@@ -1,11 +1,10 @@
 package org.mapfish.print.map.readers;
 
-import com.vividsolutions.jts.geom.Envelope;
-
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+
+import org.locationtech.jts.geom.Envelope;
 
 /**
  * Created by Jesse on 1/20/14.

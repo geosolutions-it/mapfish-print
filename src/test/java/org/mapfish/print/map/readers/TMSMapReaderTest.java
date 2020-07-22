@@ -1,11 +1,5 @@
 package org.mapfish.print.map.readers;
 
-import static org.junit.Assert.assertEquals;
-
-import java.net.URI;
-import java.util.HashMap;
-import java.util.Map;
-
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.junit.Before;
@@ -15,6 +9,16 @@ import org.mapfish.print.MapTestBasic;
 import org.mapfish.print.Transformer;
 import org.mapfish.print.utils.DistanceUnit;
 import org.mapfish.print.utils.PJsonObject;
+import org.pvalsecc.misc.FileUtilities;
+
+import java.io.File;
+import java.io.IOException;
+import java.net.URI;
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 public class TMSMapReaderTest extends MapTestBasic {
 

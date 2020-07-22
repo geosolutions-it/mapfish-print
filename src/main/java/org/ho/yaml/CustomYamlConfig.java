@@ -19,7 +19,6 @@
 
 package org.ho.yaml;
 
-import com.itextpdf.text.BaseColor;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -35,7 +34,14 @@ import org.ho.yaml.wrapper.DefaultMapWrapper;
 import org.ho.yaml.wrapper.DefaultSimpleTypeWrapper;
 import org.ho.yaml.wrapper.EnumWrapper;
 import org.ho.yaml.wrapper.ObjectWrapper;
-import org.mapfish.print.config.*;
+import org.mapfish.print.config.AcceptAllMatcher;
+import org.mapfish.print.config.AddressHostMatcher;
+import org.mapfish.print.config.BasicAuthSecurity;
+import org.mapfish.print.config.ColorWrapper;
+import org.mapfish.print.config.CustomEnumWrapper;
+import org.mapfish.print.config.DnsHostMatcher;
+import org.mapfish.print.config.Key;
+import org.mapfish.print.config.LocalHostMatcher;
 import org.mapfish.print.config.layout.AttributesBlock;
 import org.mapfish.print.config.layout.ColumnDefs;
 import org.mapfish.print.config.layout.ColumnsBlock;
@@ -51,6 +57,8 @@ import org.mapfish.print.config.layout.VerticalAlign;
 import org.mapfish.print.scalebar.Direction;
 import org.mapfish.print.scalebar.Type;
 import org.mapfish.print.utils.DistanceUnit;
+
+import com.itextpdf.text.BaseColor;
 
 public class CustomYamlConfig extends YamlConfig {
     public CustomYamlConfig() {

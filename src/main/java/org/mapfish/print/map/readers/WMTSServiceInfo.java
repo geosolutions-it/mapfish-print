@@ -19,20 +19,8 @@
 
 package org.mapfish.print.map.readers;
 
-import com.vividsolutions.jts.geom.Envelope;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.mapfish.print.RenderingContext;
-import org.pvalsecc.misc.URIUtils;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
-import org.xml.sax.EntityResolver;
-import org.xml.sax.InputSource;
-import org.xml.sax.SAXException;
+import static org.mapfish.print.map.readers.ServerInfoCache.ServiceInfoLoader.getTextContentOfChild;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
@@ -41,9 +29,27 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
 
-import static org.mapfish.print.map.readers.ServerInfoCache.ServiceInfoLoader.getTextContentOfChild;
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.ParserConfigurationException;
+
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.locationtech.jts.geom.Envelope;
+import org.mapfish.print.RenderingContext;
+import org.pvalsecc.misc.URIUtils;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
+import org.xml.sax.EntityResolver;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
 /**
  * Use to get information about a WMS server. Caches the results.
